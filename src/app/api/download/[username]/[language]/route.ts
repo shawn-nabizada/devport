@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
+import { sendResumeDownloadNotification } from '@/lib/notifications/email-notifications';
 
 // GET - Fetch resume and track download
 export async function GET(
@@ -53,9 +54,19 @@ export async function GET(
 
         // Update download count on the resume
         await db.collection('resumes').updateOne(
-            { _id: resume._id },
             { $inc: { downloadCount: 1 } }
         );
+
+        // Check notification preferences and send email
+        const preferences = await db.collection('notification_preferences').findOne({ userId: user._id });
+
+        if (preferences?.emailAlerts?.resumeDownload && user.email) {
+            await sendResumeDownloadNotification({
+                to: user.email,
+                userName: user.name,
+                resumeLanguage: language as 'en' | 'fr',
+            });
+        }
 
         // Redirect to the actual file URL
         return NextResponse.redirect(resume.fileUrl);

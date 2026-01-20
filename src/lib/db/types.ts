@@ -171,5 +171,7 @@ export interface UserProfile {
         en: string;
         fr: string;
     }>;
+    isPubliclyListed: boolean;  // Opt-in to public gallery
+    featuredAt?: Date;          // Admin can feature portfolios
     updatedAt: Date;
 }

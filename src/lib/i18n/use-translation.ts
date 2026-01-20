@@ -15,9 +15,18 @@ export function useTranslation() {
     const { language, setLanguage } = useLanguage();
 
     const t = (key: TranslationKey): string => {
-        const [section, name] = key.split('.') as [keyof Translations, string];
-        const sectionTranslations = translations[language][section];
-        return (sectionTranslations as Record<string, string>)[name] ?? key;
+        const parts = key.split('.');
+        let result: unknown = translations[language];
+
+        for (const part of parts) {
+            if (result && typeof result === 'object' && part in result) {
+                result = (result as Record<string, unknown>)[part];
+            } else {
+                return key; // Return key if path not found
+            }
+        }
+
+        return typeof result === 'string' ? result : key;
     };
 
     return { t, language, setLanguage };

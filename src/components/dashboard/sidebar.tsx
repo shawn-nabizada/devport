@@ -1,10 +1,9 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
-import { LanguageToggle } from '@/components/language-toggle';
 import {
     LayoutDashboard,
     FolderKanban,
@@ -15,14 +14,16 @@ import {
     MessageSquare,
     Quote,
     Settings,
-    LogOut,
     User,
     Heart,
+    LayoutGrid,
+    BarChart3,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 const navItems = [
     { href: '/dashboard', icon: LayoutDashboard, labelKey: 'dashboard.overview' },
+    { href: '/dashboard/layout-editor', icon: LayoutGrid, labelKey: 'dashboard.layoutEditor.title' },
+    { href: '/dashboard/analytics', icon: BarChart3, labelKey: 'analytics.title' },
     { href: '/dashboard/skills', icon: Sparkles, labelKey: 'nav.skills' },
     { href: '/dashboard/projects', icon: FolderKanban, labelKey: 'nav.projects' },
     { href: '/dashboard/experience', icon: Briefcase, labelKey: 'nav.experience' },
@@ -39,14 +40,7 @@ export function Sidebar() {
     const { data: session } = useSession();
 
     return (
-        <aside className="flex h-screen w-64 flex-col border-r border-border bg-card">
-            {/* Logo */}
-            <div className="flex h-16 items-center border-b border-border px-6">
-                <Link href="/" className="text-xl font-bold text-foreground">
-                    DevPort
-                </Link>
-            </div>
-
+        <aside className="fixed top-14 left-0 flex h-[calc(100vh-56px)] w-64 flex-col border-r border-border bg-card z-40">
             {/* User Info */}
             <div className="border-b border-border p-4">
                 <div className="flex items-center gap-3">
@@ -64,7 +58,7 @@ export function Sidebar() {
 
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto p-4">
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                     {navItems.map((item) => {
                         const isActive = pathname === item.href;
                         return (
@@ -86,26 +80,19 @@ export function Sidebar() {
             </nav>
 
             {/* Bottom Section */}
-            <div className="border-t border-border p-4 space-y-2">
+            <div className="border-t border-border p-4">
                 <Link
                     href="/dashboard/settings"
-                    className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${pathname === '/dashboard/settings'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        }`}
                 >
                     <Settings className="h-4 w-4" />
                     {t('dashboard.settings')}
                 </Link>
-                <div className="flex items-center justify-between px-3">
-                    <LanguageToggle />
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => signOut({ callbackUrl: '/' })}
-                        className="text-muted-foreground hover:text-destructive"
-                    >
-                        <LogOut className="h-4 w-4" />
-                    </Button>
-                </div>
             </div>
         </aside>
     );
 }
+

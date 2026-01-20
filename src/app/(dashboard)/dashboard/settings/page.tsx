@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, Linkedin, Github, Twitter, Globe } from 'lucide-react';
+import { Save, Linkedin, Github, Twitter, Globe, Bell } from 'lucide-react';
 
 interface Profile {
     bio: { en: string; fr: string };
@@ -19,6 +19,14 @@ interface Profile {
         twitter?: string;
         website?: string;
     };
+    isPubliclyListed: boolean;
+}
+
+interface NotificationPrefs {
+    emailOnResumeDownload: boolean;
+    emailOnContactMessage: boolean;
+    emailOnTestimonial: boolean;
+    emailDigest: 'none' | 'daily' | 'weekly';
 }
 
 export default function SettingsPage() {
@@ -32,9 +40,19 @@ export default function SettingsPage() {
         location: null,
         avatarUrl: null,
         socialLinks: {},
+        isPubliclyListed: false,
+    });
+    const [notifications, setNotifications] = useState<NotificationPrefs>({
+        emailOnResumeDownload: true,
+        emailOnContactMessage: true,
+        emailOnTestimonial: true,
+        emailDigest: 'weekly',
     });
 
-    useEffect(() => { fetchProfile(); }, []);
+    useEffect(() => {
+        fetchProfile();
+        fetchNotifications();
+    }, []);
 
     async function fetchProfile() {
         try {
@@ -43,16 +61,32 @@ export default function SettingsPage() {
         } finally { setIsLoading(false); }
     }
 
+    async function fetchNotifications() {
+        try {
+            const res = await fetch('/api/notifications/preferences');
+            if (res.ok) setNotifications(await res.json());
+        } catch (error) {
+            console.error('Failed to fetch notifications:', error);
+        }
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setIsSaving(true);
         setSaved(false);
         try {
-            await fetch('/api/profile', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(profile),
-            });
+            await Promise.all([
+                fetch('/api/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(profile),
+                }),
+                fetch('/api/notifications/preferences', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(notifications),
+                }),
+            ]);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } finally { setIsSaving(false); }
@@ -127,6 +161,65 @@ export default function SettingsPage() {
                                 <Input value={profile.socialLinks.website || ''} onChange={(e) => setProfile({ ...profile, socialLinks: { ...profile.socialLinks, website: e.target.value || undefined } })} placeholder="https://yourwebsite.com" />
                             </div>
                         </div>
+                    </CardContent>
+                </Card>
+
+                {/* Notifications */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Bell className="h-5 w-5" />
+                            {t('notifications.title')}
+                        </CardTitle>
+                        <CardDescription>{t('notifications.description')}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={notifications.emailOnResumeDownload}
+                                onChange={(e) => setNotifications({ ...notifications, emailOnResumeDownload: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <span className="text-sm">{t('notifications.onResumeDownload')}</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={notifications.emailOnContactMessage}
+                                onChange={(e) => setNotifications({ ...notifications, emailOnContactMessage: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <span className="text-sm">{t('notifications.onContactMessage')}</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={notifications.emailOnTestimonial}
+                                onChange={(e) => setNotifications({ ...notifications, emailOnTestimonial: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <span className="text-sm">{t('notifications.onTestimonial')}</span>
+                        </label>
+                    </CardContent>
+                </Card>
+
+                {/* Gallery Visibility */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{t('gallery.title')}</CardTitle>
+                        <CardDescription>{t('gallery.showInGalleryDescription')}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={profile.isPubliclyListed}
+                                onChange={(e) => setProfile({ ...profile, isPubliclyListed: e.target.checked })}
+                                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <span className="text-sm font-medium">{t('gallery.showInGallery')}</span>
+                        </label>
                     </CardContent>
                 </Card>
 

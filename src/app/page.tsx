@@ -1,34 +1,13 @@
 'use client';
 
 import { useTranslation } from '@/lib/i18n';
-import { LanguageToggle } from '@/components/language-toggle';
 import Link from 'next/link';
 
 export default function Home() {
   const { t } = useTranslation();
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="text-xl font-bold text-foreground">DevPort</div>
-        <div className="flex items-center gap-4">
-          <LanguageToggle />
-          <Link
-            href="/login"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {t('auth.login')}
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            {t('auth.register')}
-          </Link>
-        </div>
-      </header>
-
+    <div className="flex min-h-[calc(100vh-56px)] flex-col bg-background">
       {/* Hero Section */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         <div className="max-w-2xl space-y-6">
@@ -67,3 +46,4 @@ export default function Home() {
     </div>
   );
 }
+

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/lib/i18n';
+import { SessionProvider } from 'next-auth/react';
+import { Navbar } from '@/components/navbar';
 import './globals.css';
 
 const geistSans = Geist({
@@ -74,13 +76,19 @@ export default function RootLayout({
         {/* Skip to main content link for accessibility */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none"
         >
           Skip to main content
         </a>
-        <LanguageProvider>{children}</LanguageProvider>
+        <SessionProvider>
+          <LanguageProvider>
+            <Navbar />
+            <main id="main-content" className="pt-14">{children}</main>
+          </LanguageProvider>
+        </SessionProvider>
       </body>
     </html>
   );
 }
+
 

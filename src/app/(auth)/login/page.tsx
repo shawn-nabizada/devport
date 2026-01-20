@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Label } from '@/components/ui/label';
 import {
     Card,
@@ -88,16 +89,15 @@ function LoginForm() {
                                 {t('auth.forgotPassword')}
                             </Link>
                         </div>
-                        <Input
+                        <PasswordInput
                             id="password"
                             name="password"
-                            type="password"
                             required
                             disabled={isLoading}
                         />
                     </div>
                 </CardContent>
-                <CardFooter className="flex flex-col gap-4">
+                <CardFooter className="flex flex-col gap-4 mt-4">
                     <Button type="submit" className="w-full" disabled={isLoading}>
                         {isLoading ? t('common.loading') : t('auth.login')}
                     </Button>

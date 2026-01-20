@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { auth } from '@/auth';
 import clientPromise from '@/lib/mongodb';
 import { sanitizeString, sanitizeEmail, sanitizeUsername } from '@/lib/sanitize';
+import { sendTestimonialNotification } from '@/lib/notifications/email-notifications';
 
 // GET testimonials for authenticated user (dashboard)
 export async function GET() {
@@ -66,6 +67,19 @@ export async function POST(request: Request) {
             createdAt: now,
             updatedAt: now,
         });
+
+        // Check notification preferences and send email
+        const preferences = await db.collection('notification_preferences').findOne({ userId: owner._id });
+
+        if (preferences?.emailAlerts?.testimonial && owner.email) {
+            await sendTestimonialNotification({
+                to: owner.email,
+                userName: owner.name,
+                authorName: cleanName,
+                authorTitle: cleanTitle || undefined,
+                authorCompany: cleanCompany || undefined,
+            });
+        }
 
         return NextResponse.json({ message: 'Testimonial submitted for review' }, { status: 201 });
     } catch (error) {

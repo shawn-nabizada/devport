@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { auth } from '@/auth';
 import clientPromise from '@/lib/mongodb';
 import { sanitizeString, sanitizeEmail, sanitizeUsername } from '@/lib/sanitize';
+import { sendContactMessageNotification } from '@/lib/notifications/email-notifications';
 
 // GET all messages for the authenticated user
 export async function GET() {
@@ -67,6 +68,22 @@ export async function POST(request: Request) {
             read: false,
             createdAt: now,
         });
+
+        // Check notification preferences and send email
+        const preferences = await db.collection('notification_preferences').findOne({
+            userId: owner._id
+        });
+
+        if (preferences?.emailAlerts?.contactMessage && owner.email) {
+            await sendContactMessageNotification({
+                to: owner.email,
+                userName: owner.name,
+                senderName: cleanName,
+                senderEmail: cleanEmail,
+                subject: cleanSubject || undefined,
+                messagePreview: cleanMessage.substring(0, 200) + (cleanMessage.length > 200 ? '...' : ''),
+            });
+        }
 
         return NextResponse.json(
             { message: 'Message sent successfully' },

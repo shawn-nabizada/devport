@@ -51,6 +51,8 @@ export interface Translations {
         testimonials: string;
         hobbies: string;
         messages: string;
+        explore: string;
+        myPortfolio: string;
     };
     auth: {
         login: string;
@@ -79,6 +81,11 @@ export interface Translations {
         verificationCode: string;
         backToRegister: string;
         verificationFailed: string;
+        passwordRequirements: string;
+        reqSpecialChar: string;
+        reqLowerUpper: string;
+        reqNumber: string;
+        reqMinLength: string;
     };
     dashboard: {
         title: string;
@@ -99,6 +106,45 @@ export interface Translations {
         socialLinksDescription: string;
         saveChanges: string;
         manageProfile: string;
+        layoutEditor: {
+            title: string;
+            blocks: string;
+            enableEditMode: string;
+            editing: string;
+            preview: string;
+        };
+        themes: {
+            title: string;
+            description: string;
+            previewNote: string;
+            previewDescription: string;
+        };
+    };
+    analytics: {
+        title: string;
+        description: string;
+        pageViews: string;
+        uniqueVisitors: string;
+        resumeDownloads: string;
+        contactMessages: string;
+        last30Days: string;
+        last14Days: string;
+        viewsOverTime: string;
+        topProjects: string;
+        mostClicked: string;
+        clicks: string;
+        topReferrers: string;
+        whereVisitorsComeFrom: string;
+        noData: string;
+        noProjectClicks: string;
+        noReferrers: string;
+    };
+    notifications: {
+        title: string;
+        description: string;
+        onResumeDownload: string;
+        onContactMessage: string;
+        onTestimonial: string;
     };
     portfolio: {
         viewResume: string;
@@ -249,5 +295,16 @@ export interface Translations {
         tagline: string;
         subtitle: string;
         copyright: string;
+    };
+    gallery: {
+        title: string;
+        subtitle: string;
+        searchPlaceholder: string;
+        filterBySkills: string;
+        noResults: string;
+        featured: string;
+        viewPortfolio: string;
+        showInGallery: string;
+        showInGalleryDescription: string;
     };
 }

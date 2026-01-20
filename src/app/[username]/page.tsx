@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use } from 'react';
 import { useTranslation } from '@/lib/i18n';
-import { LanguageToggle } from '@/components/language-toggle';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,24 +65,13 @@ export default function PortfolioPage({ params }: { params: Promise<{ username: 
 
     const formatDate = (date: string) => new Date(date).toLocaleDateString(language === 'fr' ? 'fr-CA' : 'en-US', { year: 'numeric', month: 'short' });
 
-    if (isLoading) return <div className="min-h-screen flex items-center justify-center">{t('common.loading')}</div>;
-    if (error || !portfolio) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">{error || 'Not found'}</div>;
+    if (isLoading) return <div className="min-h-[calc(100vh-56px)] flex items-center justify-center">{t('common.loading')}</div>;
+    if (error || !portfolio) return <div className="min-h-[calc(100vh-56px)] flex items-center justify-center text-muted-foreground">{error || 'Not found'}</div>;
 
     const { user, profile, skills, projects, experience, education, hobbies, resumes, testimonials } = portfolio;
 
     return (
-        <div className="min-h-screen bg-background">
-            {/* Header */}
-            <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
-                <div className="container mx-auto flex items-center justify-between px-4 py-3">
-                    <Link href="/" className="text-lg font-bold">DevPort</Link>
-                    <div className="flex items-center gap-4">
-                        <LanguageToggle />
-                        <Link href="/login"><Button variant="outline" size="sm">{t('auth.login')}</Button></Link>
-                    </div>
-                </div>
-            </header>
-
+        <div className="min-h-[calc(100vh-56px)] bg-background">
             {/* Hero */}
             <section className="py-16 border-b">
                 <div className="container mx-auto px-4 text-center">

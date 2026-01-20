@@ -1,4 +1,3 @@
-import { SessionProvider } from 'next-auth/react';
 import { Sidebar } from '@/components/dashboard/sidebar';
 
 export default function DashboardLayout({
@@ -7,13 +6,14 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <SessionProvider>
-            <div className="flex min-h-screen bg-background">
-                <Sidebar />
-                <main className="flex-1 overflow-y-auto">
-                    <div className="p-8">{children}</div>
-                </main>
-            </div>
-        </SessionProvider>
+        <div className="min-h-[calc(100vh-56px)] bg-background">
+            <Sidebar />
+            {/* Main content with left margin for fixed sidebar */}
+            <main className="ml-64 min-h-[calc(100vh-56px)] overflow-y-auto">
+                <div className="p-8">{children}</div>
+            </main>
+        </div>
     );
 }
+
+
