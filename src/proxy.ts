@@ -1,9 +1,28 @@
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { checkRateLimit } from '@/lib/rate-limit';
+
+// Rate limited API routes
+const RATE_LIMITED_ROUTES = [
+    '/api/messages',
+    '/api/testimonials',
+    '/api/auth/register',
+    '/api/auth/verify',
+    '/api/download',
+];
 
 const authMiddleware = auth((req) => {
     const isLoggedIn = !!req.auth;
     const { pathname } = req.nextUrl;
+
+    // Check rate limiting for public API routes
+    if (RATE_LIMITED_ROUTES.some(route => pathname.startsWith(route))) {
+        const rateLimitResponse = checkRateLimit(req as unknown as NextRequest);
+        if (rateLimitResponse) {
+            return rateLimitResponse;
+        }
+    }
 
     // Protected routes that require authentication
     const protectedRoutes = ['/dashboard'];
@@ -25,7 +44,14 @@ const authMiddleware = auth((req) => {
         return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin));
     }
 
-    return NextResponse.next();
+    // Add security headers
+    const response = NextResponse.next();
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    return response;
 });
 
 // Next.js 16 uses 'proxy' instead of 'middleware'
@@ -33,7 +59,7 @@ export { authMiddleware as proxy };
 
 export const config = {
     matcher: [
-        // Match all routes except static files and API routes (except auth)
-        '/((?!api(?!/auth)|_next/static|_next/image|favicon.ico).*)',
+        // Match all routes except static files
+        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 };
