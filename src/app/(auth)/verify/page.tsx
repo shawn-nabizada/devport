@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n';
@@ -16,7 +16,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 
-export default function VerifyPage() {
+function VerifyForm() {
     const { t } = useTranslation();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -112,5 +112,13 @@ export default function VerifyPage() {
                 </CardFooter>
             </form>
         </Card>
+    );
+}
+
+export default function VerifyPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <VerifyForm />
+        </Suspense>
     );
 }

@@ -13,20 +13,20 @@ export async function GET() {
         const client = await clientPromise;
         const db = client.db();
 
-        let profile = await db.collection('profiles').findOne({
+        const profile = await db.collection('profiles').findOne({
             userId: new ObjectId(session.user.id),
         });
 
         // Return default empty profile if not exists
         if (!profile) {
-            profile = {
+            return NextResponse.json({
                 userId: new ObjectId(session.user.id),
                 bio: { en: '', fr: '' },
                 headline: { en: '', fr: '' },
                 location: null,
                 avatarUrl: null,
                 socialLinks: {},
-            };
+            });
         }
 
         return NextResponse.json(profile);

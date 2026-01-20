@@ -77,7 +77,7 @@ export function Sidebar() {
                                         }`}
                                 >
                                     <item.icon className="h-4 w-4" />
-                                    {t(item.labelKey as `nav.${string}`)}
+                                    {t(item.labelKey as Parameters<typeof t>[0])}
                                 </Link>
                             </li>
                         );
