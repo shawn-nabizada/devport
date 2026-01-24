@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/lib/i18n';
 import { SessionProvider } from 'next-auth/react';
+import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { Navbar } from '@/components/navbar';
+import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 
 const geistSans = Geist({
@@ -80,12 +82,15 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <SessionProvider>
-          <LanguageProvider>
-            <Navbar />
-            <main id="main-content" className="pt-14">{children}</main>
-          </LanguageProvider>
-        </SessionProvider>
+        <ThemeProvider defaultTheme="system" storageKey="devport-theme">
+          <SessionProvider>
+            <LanguageProvider>
+              <Navbar />
+              <main id="main-content" className="pt-24">{children}</main>
+              <Toaster richColors position="bottom-right" />
+            </LanguageProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -25,8 +25,13 @@ export async function PUT(
         const client = await clientPromise;
         const db = client.db();
 
+        const query: { _id: ObjectId; userId?: ObjectId } = { _id: new ObjectId(id) };
+        if (session.user.role !== 'admin') {
+            query.userId = new ObjectId(session.user.id);
+        }
+
         const result = await db.collection('testimonials').updateOne(
-            { _id: new ObjectId(id), userId: new ObjectId(session.user.id) },
+            query,
             { $set: { status, updatedAt: new Date() } }
         );
 
@@ -56,10 +61,12 @@ export async function DELETE(
         const client = await clientPromise;
         const db = client.db();
 
-        const result = await db.collection('testimonials').deleteOne({
-            _id: new ObjectId(id),
-            userId: new ObjectId(session.user.id),
-        });
+        const query: { _id: ObjectId; userId?: ObjectId } = { _id: new ObjectId(id) };
+        if (session.user.role !== 'admin') {
+            query.userId = new ObjectId(session.user.id);
+        }
+
+        const result = await db.collection('testimonials').deleteOne(query);
 
         if (result.deletedCount === 0) {
             return NextResponse.json({ error: 'Testimonial not found' }, { status: 404 });

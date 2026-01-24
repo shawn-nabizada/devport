@@ -12,9 +12,13 @@ import {
     Eye,
     ExternalLink,
     Loader2,
-    BarChart3
+    BarChart3,
+    Activity, // Heatmap icon
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { HeatmapGrid } from '@/components/dashboard/analytics/heatmap-grid';
+import { LayoutItem, GridBlock } from '@/lib/db/layout-types';
 
 interface AnalyticsData {
     totalPageViews: number;
@@ -38,6 +42,11 @@ interface AnalyticsData {
         referrer: string;
         count: number;
     }>;
+    topLocations?: Array<{
+        country: string;
+        count: number;
+    }>;
+    blockClicks?: Record<string, number>;
 }
 
 function StatCard({
@@ -46,12 +55,14 @@ function StatCard({
     description,
     icon: Icon,
     trend,
+    t,
 }: {
     title: string;
     value: number;
     description?: string;
     icon: React.ElementType;
     trend?: number;
+    t: (key: string) => string;
 }) {
     return (
         <Card>
@@ -71,7 +82,7 @@ function StatCard({
                 {trend !== undefined && (
                     <p className={`text-xs mt-1 flex items-center gap-1 ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         <TrendingUp className={`h-3 w-3 ${trend < 0 ? 'rotate-180' : ''}`} />
-                        {Math.abs(trend)}% vs last period
+                        {Math.abs(trend)}% {t('analytics.vsLastPeriod')}
                     </p>
                 )}
             </CardContent>
@@ -96,6 +107,7 @@ function SimpleBarChart({ data }: { data: Array<{ date: string; views: number }>
                     </span>
                 </div>
             ))}
+
         </div>
     );
 }
@@ -105,6 +117,35 @@ export default function AnalyticsPage() {
     const { t } = useTranslation();
     const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
+    // Heatmap data
+    const [layout, setLayout] = useState<LayoutItem[]>([]);
+    const [blocks, setBlocks] = useState<GridBlock[]>([]);
+    const [loadingHeatmap, setLoadingHeatmap] = useState(false);
+
+    // Fetch layout for heatmap
+    useEffect(() => {
+        if (!analytics?.blockClicks) return;
+
+        async function fetchLayout() {
+            setLoadingHeatmap(true);
+            try {
+                // Fetch desktop layout by default
+                const [lRes, bRes] = await Promise.all([
+                    fetch('/api/layout?device=desktop'),
+                    fetch('/api/blocks') // fetch generic blocks? Or blocks with device content?
+                ]);
+
+                if (lRes.ok && bRes.ok) {
+                    const lData = await lRes.json();
+                    const bData = await bRes.json();
+                    setLayout(lData);
+                    setBlocks(bData);
+                }
+            } catch (e) { console.error(e); } finally { setLoadingHeatmap(false); }
+        }
+
+        if (!layout.length) fetchLayout();
+    }, [analytics, layout.length]);
 
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -160,104 +201,179 @@ export default function AnalyticsPage() {
                 </p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                    title={t('analytics.pageViews')}
-                    value={analytics.totalPageViews}
-                    description={t('analytics.last30Days')}
-                    icon={Eye}
-                />
-                <StatCard
-                    title={t('analytics.uniqueVisitors')}
-                    value={analytics.totalUniqueVisitors}
-                    description={t('analytics.last30Days')}
-                    icon={Users}
-                />
-                <StatCard
-                    title={t('analytics.resumeDownloads')}
-                    value={analytics.totalResumeDownloads}
-                    description={t('analytics.last30Days')}
-                    icon={Download}
-                />
-                <StatCard
-                    title={t('analytics.contactMessages')}
-                    value={analytics.totalContactSubmissions}
-                    description={t('analytics.last30Days')}
-                    icon={MessageSquare}
-                />
-            </div>
+            <Tabs defaultValue="overview" className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="heatmap" className="flex items-center gap-2">
+                        <Activity className="h-4 w-4" /> Heatmap
+                    </TabsTrigger>
+                </TabsList>
 
-            {/* Charts Row */}
-            <div className="grid gap-6 md:grid-cols-2">
-                {/* Views Chart */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('analytics.viewsOverTime')}</CardTitle>
-                        <CardDescription>{t('analytics.last14Days')}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <SimpleBarChart data={analytics.dailyStats} />
-                    </CardContent>
-                </Card>
+                <TabsContent value="overview" className="space-y-6">
 
-                {/* Top Projects */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('analytics.topProjects')}</CardTitle>
-                        <CardDescription>{t('analytics.mostClicked')}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {analytics.topProjects.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">{t('analytics.noProjectClicks')}</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {analytics.topProjects.map((project, index) => (
-                                    <div key={project.projectId} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-lg font-bold text-muted-foreground">
-                                                #{index + 1}
-                                            </span>
-                                            <span className="font-medium truncate max-w-[200px]">
-                                                {project.projectTitle}
-                                            </span>
-                                        </div>
-                                        <span className="text-sm text-muted-foreground">
-                                            {project.clicks} {t('analytics.clicks')}
-                                        </span>
+
+                    {/* Stats Grid */}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <StatCard
+                            title={t('analytics.pageViews')}
+                            value={analytics.totalPageViews}
+                            description={t('analytics.last30Days')}
+                            icon={Eye}
+                            t={t}
+                        />
+                        <StatCard
+                            title={t('analytics.uniqueVisitors')}
+                            value={analytics.totalUniqueVisitors}
+                            description={t('analytics.last30Days')}
+                            icon={Users}
+                            t={t}
+                        />
+                        <StatCard
+                            title={t('analytics.resumeDownloads')}
+                            value={analytics.totalResumeDownloads}
+                            description={t('analytics.last30Days')}
+                            icon={Download}
+                            t={t}
+                        />
+                        <StatCard
+                            title={t('analytics.contactMessages')}
+                            value={analytics.totalContactSubmissions}
+                            description={t('analytics.last30Days')}
+                            icon={MessageSquare}
+                            t={t}
+                        />
+                    </div>
+
+                    {/* Charts Row */}
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Views Chart */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('analytics.viewsOverTime')}</CardTitle>
+                                <CardDescription>{t('analytics.last14Days')}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <SimpleBarChart data={analytics.dailyStats} />
+                            </CardContent>
+                        </Card>
+
+                        {/* Top Projects */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('analytics.topProjects')}</CardTitle>
+                                <CardDescription>{t('analytics.mostClicked')}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {analytics.topProjects.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">{t('analytics.noProjectClicks')}</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {analytics.topProjects.map((project, index) => (
+                                            <div key={project.projectId} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-lg font-bold text-muted-foreground">
+                                                        #{index + 1}
+                                                    </span>
+                                                    <span className="font-medium truncate max-w-[200px]">
+                                                        {project.projectTitle}
+                                                    </span>
+                                                </div>
+                                                <span className="text-sm text-muted-foreground">
+                                                    {project.clicks} {t('analytics.clicks')}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
 
-            {/* Referrers */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>{t('analytics.topReferrers')}</CardTitle>
-                    <CardDescription>{t('analytics.whereVisitorsComeFrom')}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {analytics.topReferrers.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">{t('analytics.noReferrers')}</p>
-                    ) : (
-                        <div className="flex flex-wrap gap-2">
-                            {analytics.topReferrers.map((ref) => (
-                                <div
-                                    key={ref.referrer}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-full text-sm"
-                                >
-                                    <ExternalLink className="h-3 w-3" />
-                                    <span>{ref.referrer}</span>
-                                    <span className="font-medium">({ref.count})</span>
+                    {/* Referrers & Locations */}
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Referrers */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('analytics.topReferrers')}</CardTitle>
+                                <CardDescription>{t('analytics.whereVisitorsComeFrom')}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {analytics.topReferrers.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">{t('analytics.noReferrers')}</p>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {analytics.topReferrers.map((ref) => (
+                                            <div
+                                                key={ref.referrer}
+                                                className="flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-full text-sm"
+                                            >
+                                                <ExternalLink className="h-3 w-3" />
+                                                <span>{ref.referrer}</span>
+                                                <span className="font-medium">({ref.count})</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Locations */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>{t('analytics.topCountries') || 'Top Countries'}</CardTitle>
+                                <CardDescription>{t('analytics.visitorLocations') || 'Where your visitors are located'}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {!analytics.topLocations || analytics.topLocations.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground">{t('analytics.noLocations') || 'No location data yet'}</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {analytics.topLocations.map((loc) => (
+                                            <div key={loc.country} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xl">
+                                                        {loc.country === 'US' ? '🇺🇸' :
+                                                            loc.country === 'CA' ? '🇨🇦' :
+                                                                loc.country === 'GB' ? '🇬🇧' :
+                                                                    loc.country === 'FR' ? '🇫🇷' :
+                                                                        loc.country === 'Unknown' ? '🌍' : '🏳️'}
+                                                    </span>
+                                                    <span className="font-medium">{loc.country === 'Unknown' ? 'Unknown Location' : loc.country}</span>
+                                                </div>
+                                                <span className="text-sm text-muted-foreground font-medium">
+                                                    {loc.count} {t('analytics.visits') || 'visits'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="heatmap">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Click Heatmap</CardTitle>
+                            <CardDescription>Visualizing user interactions on your Desktop layout.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="min-h-[500px]">
+                            {loadingHeatmap ? (
+                                <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin" /></div>
+                            ) : (
+                                <div className="p-4 bg-muted/20 rounded-lg">
+                                    <HeatmapGrid
+                                        layout={layout}
+                                        blocks={blocks}
+                                        blockClicks={analytics?.blockClicks || {}}
+                                    />
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+        </div >
     );
 }

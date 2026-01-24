@@ -76,7 +76,7 @@ function ThemeCard({ theme, isSelected, onSelect }: {
                     {theme.description[language]}
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                    {theme.typography.fontFamily.split(',')[0]}
+                    {theme.fonts.sans.split(',')[0]}
                 </p>
             </div>
         </button>
@@ -158,7 +158,7 @@ function ThemeSelectorContent() {
 export default function ThemesPage() {
     const { data: session, status } = useSession();
     const { t } = useTranslation();
-    const [initialTheme, setInitialTheme] = useState<ThemeId>('minimalist');
+    const [initialTheme, setInitialTheme] = useState<ThemeId>('tech');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {

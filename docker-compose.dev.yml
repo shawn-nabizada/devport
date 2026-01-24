@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: deps
-    command: sh -c "npm run seed && npm run dev"
+    command: npm run dev
     ports:
       - "3000:3000"
     volumes:

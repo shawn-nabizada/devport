@@ -34,10 +34,18 @@ interface GridContextValue {
     removeBlock: (id: string) => void;
     saveLayout: () => Promise<void>;
 
+    // Undo/redo
+    undo: () => void;
+    redo: () => void;
+    saveCheckpoint: () => void;
+    canUndo: boolean;
+    canRedo: boolean;
+
     // Loading state
     isSaving: boolean;
     isDirty: boolean;
     isLoadingDevice: boolean;
+    readOnly?: boolean;
 }
 
 const GridContext = createContext<GridContextValue | null>(null);
@@ -54,9 +62,19 @@ interface GridProviderProps {
     children: ReactNode;
     initialLayout?: LayoutItem[];
     initialBlocks?: GridBlock[];
+    initialMobileLayout?: LayoutItem[];
+    initialMobileBlocks?: GridBlock[];
+    readOnly?: boolean;
 }
 
-export function GridProvider({ children, initialLayout = [], initialBlocks = [] }: GridProviderProps) {
+export function GridProvider({
+    children,
+    initialLayout = [],
+    initialBlocks = [],
+    initialMobileLayout = [],
+    initialMobileBlocks = [],
+    readOnly = false
+}: GridProviderProps) {
     // Separate state for each device
     const [desktopState, setDesktopState] = useState<DeviceLayoutState>({
         layout: initialLayout,
@@ -64,11 +82,11 @@ export function GridProvider({ children, initialLayout = [], initialBlocks = [] 
         isDirty: false,
     });
     const [mobileState, setMobileState] = useState<DeviceLayoutState>({
-        layout: [],
-        blocks: [],
+        layout: initialMobileLayout,
+        blocks: initialMobileBlocks,
         isDirty: false,
     });
-    const [mobileLoaded, setMobileLoaded] = useState(false);
+    const [mobileLoaded, setMobileLoaded] = useState(initialMobileLayout.length > 0);
 
     const [editMode, setEditMode] = useState(false);
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -80,14 +98,8 @@ export function GridProvider({ children, initialLayout = [], initialBlocks = [] 
     const currentState = device === 'desktop' ? desktopState : mobileState;
     const setCurrentState = device === 'desktop' ? setDesktopState : setMobileState;
 
-    // Load mobile layout when first switching to mobile
-    useEffect(() => {
-        if (device === 'mobile' && !mobileLoaded) {
-            loadDeviceLayout('mobile');
-        }
-    }, [device, mobileLoaded]);
-
-    const loadDeviceLayout = async (targetDevice: DeviceType) => {
+    const loadDeviceLayout = useCallback(async (targetDevice: DeviceType) => {
+        if (readOnly) return;
         setIsLoadingDevice(true);
         try {
             const [layoutRes, blocksRes] = await Promise.all([
@@ -126,7 +138,14 @@ export function GridProvider({ children, initialLayout = [], initialBlocks = [] 
         } finally {
             setIsLoadingDevice(false);
         }
-    };
+    }, [readOnly]);
+
+    // Load mobile layout when first switching to mobile
+    useEffect(() => {
+        if (device === 'mobile' && !mobileLoaded && !readOnly) {
+            loadDeviceLayout('mobile');
+        }
+    }, [device, mobileLoaded, readOnly, loadDeviceLayout]);
 
     const setDevice = useCallback((newDevice: DeviceType) => {
         // Clear selection when switching devices
@@ -195,6 +214,7 @@ export function GridProvider({ children, initialLayout = [], initialBlocks = [] 
     }, [setCurrentState]);
 
     const saveLayout = useCallback(async () => {
+        if (readOnly) return;
         setIsSaving(true);
         try {
             // Save layout for current device
@@ -231,7 +251,63 @@ export function GridProvider({ children, initialLayout = [], initialBlocks = [] 
         } finally {
             setIsSaving(false);
         }
-    }, [device, currentState, setCurrentState]);
+    }, [device, currentState, setCurrentState, readOnly]);
+
+    // History State
+    const [history, setHistory] = useState<{ past: DeviceLayoutState[]; future: DeviceLayoutState[] }>({ past: [], future: [] });
+
+    // Reset history on device change
+    useEffect(() => {
+        setHistory({ past: [], future: [] });
+    }, [device]);
+
+    const saveCheckpoint = useCallback(() => {
+        setHistory(prev => ({
+            past: [...prev.past, { ...currentState }], // Deep copy state? layout/blocks refer to arrays. { ...currentState } shadows.
+            future: []
+        }));
+    }, [currentState]);
+
+    const undo = useCallback(() => {
+        setHistory(prev => {
+            if (prev.past.length === 0) return prev;
+            const newPast = [...prev.past];
+            const previousState = newPast.pop()!;
+
+            // Push current to future
+            const newFuture = [{ ...currentState }, ...prev.future];
+
+            // Restore state
+            setCurrentState(previousState);
+
+            return {
+                past: newPast,
+                future: newFuture
+            };
+        });
+    }, [currentState, setCurrentState]);
+
+    const redo = useCallback(() => {
+        setHistory(prev => {
+            if (prev.future.length === 0) return prev;
+            const newFuture = [...prev.future];
+            const nextState = newFuture.shift()!;
+
+            // Push current to past
+            const newPast = [...prev.past, { ...currentState }];
+
+            // Restore state
+            setCurrentState(nextState);
+
+            return {
+                past: newPast,
+                future: newFuture
+            };
+        });
+    }, [currentState, setCurrentState]);
+
+    // Wrap state setters to support history where needed?
+    // Actually, we rely on manual saveCheckpoint() calls in Editor.
 
     const value: GridContextValue = {
         layout: currentState.layout,
@@ -251,6 +327,12 @@ export function GridProvider({ children, initialLayout = [], initialBlocks = [] 
         isSaving,
         isDirty: currentState.isDirty,
         isLoadingDevice,
+        readOnly,
+        undo,
+        redo,
+        saveCheckpoint,
+        canUndo: history.past.length > 0,
+        canRedo: history.future.length > 0,
     };
 
     return <GridContext.Provider value={value}>{children}</GridContext.Provider>;

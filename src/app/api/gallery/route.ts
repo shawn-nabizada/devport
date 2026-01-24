@@ -26,8 +26,6 @@ export async function GET(request: NextRequest) {
 
         // Build aggregation pipeline
         const pipeline: object[] = [
-            // Match only publicly listed profiles
-            { $match: { isPubliclyListed: true } },
 
             // Join with users collection
             {

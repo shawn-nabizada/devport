@@ -44,6 +44,18 @@ const authMiddleware = auth((req) => {
         return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin));
     }
 
+    // Admin Protection
+    if (pathname.startsWith('/admin')) {
+        if (!isLoggedIn) {
+            const loginUrl = new URL('/login', req.nextUrl.origin);
+            loginUrl.searchParams.set('callbackUrl', pathname);
+            return NextResponse.redirect(loginUrl);
+        }
+        if (req.auth?.user?.role !== 'admin') {
+            return NextResponse.redirect(new URL('/dashboard', req.nextUrl.origin));
+        }
+    }
+
     // Add security headers
     const response = NextResponse.next();
     response.headers.set('X-Content-Type-Options', 'nosniff');

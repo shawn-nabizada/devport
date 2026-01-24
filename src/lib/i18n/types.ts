@@ -86,6 +86,9 @@ export interface Translations {
         reqLowerUpper: string;
         reqNumber: string;
         reqMinLength: string;
+        usernameTaken: string;
+        codeResent: string;
+        resendCode: string;
     };
     dashboard: {
         title: string;
@@ -106,16 +109,55 @@ export interface Translations {
         socialLinksDescription: string;
         saveChanges: string;
         manageProfile: string;
+        allSet: string;
+        dataManagement: string;
+        dataDescription: string;
+        exportData: string;
+        exportDescription: string;
+        export: string;
+        dangerZone: string;
+        dangerZoneDescription: string;
+        deleteAccount: string;
+        deleteDescription: string;
+        delete: string;
         layoutEditor: {
             title: string;
             blocks: string;
             enableEditMode: string;
             editing: string;
             preview: string;
+            selectTextBlock: string;
+            fonts: string;
+            colors: string;
+            customize: string;
+            text: string;
+            image: string;
+            skills: string;
+            social: string;
+            video: string;
+            sans: string;
+            serif: string;
+            mono: string;
+            primary: string;
+            secondary: string;
+            accent: string;
+            background: string;
+            foreground: string;
+            card: string;
+            muted: string;
+            border: string;
+            noImageSet: string;
+            uploadImage: string;
+            replaceImage: string;
+            uploadSuccess: string;
+            uploadFailed: string;
+            textPlaceholder: string;
+            clickToEdit: string;
         };
         themes: {
             title: string;
             description: string;
+            preset: string;
             previewNote: string;
             previewDescription: string;
         };
@@ -138,6 +180,11 @@ export interface Translations {
         noData: string;
         noProjectClicks: string;
         noReferrers: string;
+        vsLastPeriod: string;
+        topCountries: string;
+        visitorLocations: string;
+        noLocations: string;
+        visits: string;
     };
     notifications: {
         title: string;
@@ -202,6 +249,8 @@ export interface Translations {
         noSkills: string;
         addFirstSkill: string;
         deleteConfirm: string;
+        placeholderName: string;
+        placeholderCategory: string;
     };
     projects: {
         title: string;
@@ -220,6 +269,7 @@ export interface Translations {
         noProjects: string;
         addFirstProject: string;
         deleteConfirm: string;
+        techPlaceholder: string;
     };
     experience: {
         title: string;
@@ -239,6 +289,7 @@ export interface Translations {
         noExperience: string;
         addFirstExperience: string;
         deleteConfirm: string;
+        locationPlaceholder: string;
     };
     education: {
         title: string;
@@ -258,6 +309,11 @@ export interface Translations {
         noEducation: string;
         addFirstEducation: string;
         deleteConfirm: string;
+        locationPlaceholder: string;
+        degreePlaceholderEn: string;
+        degreePlaceholderFr: string;
+        fieldPlaceholderEn: string;
+        fieldPlaceholderFr: string;
     };
     hobbies: {
         title: string;
@@ -271,6 +327,8 @@ export interface Translations {
         noHobbies: string;
         addFirstHobby: string;
         deleteConfirm: string;
+        namePlaceholderEn: string;
+        namePlaceholderFr: string;
     };
     messages: {
         title: string;
@@ -304,7 +362,46 @@ export interface Translations {
         noResults: string;
         featured: string;
         viewPortfolio: string;
-        showInGallery: string;
-        showInGalleryDescription: string;
+    };
+    admin: {
+        title: string;
+        usersTitle: string;
+        usersDescription: string;
+        searchUsers: string;
+        table: {
+            user: string;
+            role: string;
+            status: string;
+            joined: string;
+            actions: string;
+        };
+        status: {
+            verified: string;
+            pending: string;
+        };
+        role: {
+            admin: string;
+            user: string;
+        };
+        deleteUser: string;
+        deleteConfirm: string;
+        userDeleted: string;
+        deleteFailed: string;
+        viewProfile: string;
+        testimonialsTitle: string;
+        testimonialsDescription: string;
+        noTestimonials: string;
+        approve: string;
+        reject: string;
+        testimonialApproved: string;
+        testimonialRejected: string;
+        stats: {
+            totalUsers: string;
+            activeUsers: string;
+            totalProjects: string;
+            totalViews: string;
+            testimonials: string;
+            actionRequired: string;
+        };
     };
 }

@@ -54,6 +54,7 @@ export async function GET(
 
         // Update download count on the resume
         await db.collection('resumes').updateOne(
+            { _id: resume._id },
             { $inc: { downloadCount: 1 } }
         );
 

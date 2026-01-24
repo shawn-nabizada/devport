@@ -10,7 +10,7 @@ import { ObjectId } from 'mongodb';
 export type BlockType = 'text' | 'image' | 'skills' | 'social' | 'video';
 
 /**
- * Text block content
+ * Text block content with formatting options
  */
 export interface TextBlockContent {
     variant: 'heading' | 'paragraph';
@@ -18,6 +18,12 @@ export interface TextBlockContent {
         en: string;
         fr: string;
     };
+    // Text formatting options
+    fontSize?: number;          // Font size in pixels
+    fontWeight?: 'normal' | 'bold';
+    fontStyle?: 'normal' | 'italic';
+    textDecoration?: 'none' | 'underline';
+    textAlign?: 'left' | 'center' | 'right' | 'justify';
 }
 
 /**

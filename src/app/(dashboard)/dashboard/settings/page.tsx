@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, Linkedin, Github, Twitter, Globe, Bell } from 'lucide-react';
+import { Save, Linkedin, Github, Twitter, Globe, Bell, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { signOut } from 'next-auth/react';
+
 
 interface Profile {
     bio: { en: string; fr: string };
@@ -19,7 +21,6 @@ interface Profile {
         twitter?: string;
         website?: string;
     };
-    isPubliclyListed: boolean;
 }
 
 interface NotificationPrefs {
@@ -40,7 +41,6 @@ export default function SettingsPage() {
         location: null,
         avatarUrl: null,
         socialLinks: {},
-        isPubliclyListed: false,
     });
     const [notifications, setNotifications] = useState<NotificationPrefs>({
         emailOnResumeDownload: true,
@@ -92,10 +92,34 @@ export default function SettingsPage() {
         } finally { setIsSaving(false); }
     }
 
+    const handleExport = () => {
+        window.location.href = '/api/export';
+    };
+
+    const handleDeleteAccount = async () => {
+        // Simple confirmation prompt
+        const confirmation = window.prompt("To verify, type DELETE to confirm account deletion. This action cannot be undone.");
+        if (confirmation !== 'DELETE') return;
+
+        try {
+            const res = await fetch('/api/profile', {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                await signOut({ callbackUrl: '/login' });
+            } else {
+                alert('Failed to delete account');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('An error occurred');
+        }
+    };
+
     if (isLoading) return <div className="text-muted-foreground">{t('common.loading')}</div>;
 
     return (
-        <div className="space-y-6 max-w-3xl">
+        <div className="space-y-6 max-w-3xl pb-10">
             <div>
                 <h1 className="text-3xl font-bold">{t('dashboard.settings')}</h1>
                 <p className="text-muted-foreground">{t('dashboard.manageProfile')}</p>
@@ -204,25 +228,6 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
 
-                {/* Gallery Visibility */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('gallery.title')}</CardTitle>
-                        <CardDescription>{t('gallery.showInGalleryDescription')}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <label className="flex items-center gap-3 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={profile.isPubliclyListed}
-                                onChange={(e) => setProfile({ ...profile, isPubliclyListed: e.target.checked })}
-                                className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
-                            />
-                            <span className="text-sm font-medium">{t('gallery.showInGallery')}</span>
-                        </label>
-                    </CardContent>
-                </Card>
-
                 <div className="flex items-center gap-4">
                     <Button type="submit" disabled={isSaving}>
                         <Save className="mr-2 h-4 w-4" />
@@ -231,6 +236,51 @@ export default function SettingsPage() {
                     {saved && <span className="text-sm text-green-600">✓ {t('common.saved')}</span>}
                 </div>
             </form>
+
+            {/* Data Management */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>{t('dashboard.dataManagement') || 'Data Management'}</CardTitle>
+                    <CardDescription>{t('dashboard.dataDescription') || 'Download a copy of your data or manage your account.'}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className="font-medium">{t('dashboard.exportData') || 'Export Data'}</h4>
+                            <p className="text-sm text-muted-foreground">{t('dashboard.exportDescription') || 'Download all your portfolio data in JSON format.'}</p>
+                        </div>
+                        <Button variant="outline" onClick={handleExport}>
+                            <Download className="mr-2 h-4 w-4" />
+                            {t('dashboard.export') || 'Export'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Danger Zone */}
+            <Card className="border-destructive/50">
+                <CardHeader>
+                    <CardTitle className="text-destructive flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        {t('dashboard.dangerZone') || 'Danger Zone'}
+                    </CardTitle>
+                    <CardDescription>
+                        {t('dashboard.dangerZoneDescription') || 'Irreversible actions.'}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className="font-medium">{t('dashboard.deleteAccount') || 'Delete Account'}</h4>
+                            <p className="text-sm text-muted-foreground">{t('dashboard.deleteDescription') || 'Permanently delete your account and all data.'}</p>
+                        </div>
+                        <Button variant="destructive" onClick={handleDeleteAccount}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {t('dashboard.delete') || 'Delete'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

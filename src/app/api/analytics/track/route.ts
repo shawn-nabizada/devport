@@ -30,6 +30,13 @@ export async function POST(request: NextRequest) {
         const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ||
             request.headers.get('x-real-ip') ||
             'unknown';
+
+        // Geo Info
+        const country = request.headers.get('x-vercel-ip-country') ||
+            request.headers.get('cf-ipcountry') ||
+            'Unknown';
+        const city = request.headers.get('x-vercel-ip-city') || 'Unknown';
+
         const userAgent = request.headers.get('user-agent') || undefined;
         const referrer = request.headers.get('referer') || undefined;
 
@@ -48,6 +55,8 @@ export async function POST(request: NextRequest) {
                 ...metadata,
                 referrer,
                 userAgent,
+                country,
+                city,
             },
             visitorId,
             ipHash: hashIP(ip, process.env.AUTH_SECRET || 'salt'),
@@ -59,12 +68,19 @@ export async function POST(request: NextRequest) {
         // Update daily aggregates
         const today = normalizeDate(new Date());
 
-        const updateOps: Record<string, unknown> = {
-            $inc: {
-                pageViews: eventType === 'page_view' ? 1 : 0,
-                contactSubmissions: eventType === 'contact_submit' ? 1 : 0,
-                testimonialSubmissions: eventType === 'testimonial_submit' ? 1 : 0,
-            },
+        const incOps: Record<string, number> = {
+            pageViews: eventType === 'page_view' ? 1 : 0,
+            contactSubmissions: eventType === 'contact_submit' ? 1 : 0,
+            testimonialSubmissions: eventType === 'testimonial_submit' ? 1 : 0,
+        };
+
+        // Track location for page views
+        if (eventType === 'page_view' && country !== 'Unknown') {
+            incOps[`locations.${country}`] = 1;
+        }
+
+        const updateOps = {
+            $inc: incOps,
             $setOnInsert: {
                 userId: new ObjectId(userId),
                 date: today,
@@ -73,21 +89,25 @@ export async function POST(request: NextRequest) {
 
         // Handle specific event types
         if (eventType === 'project_click' && metadata.projectId) {
-            updateOps.$inc[`projectClicks.${metadata.projectId}`] = 1;
+            incOps[`projectClicks.${metadata.projectId}`] = 1;
         }
 
         if (eventType === 'resume_download' && metadata.resumeLanguage) {
-            updateOps.$inc[`resumeDownloads.${metadata.resumeLanguage}`] = 1;
+            incOps[`resumeDownloads.${metadata.resumeLanguage}`] = 1;
+        }
+
+        if (eventType === 'block_click' && metadata.blockId) {
+            incOps[`blockClicks.${metadata.blockId}`] = 1;
         }
 
         if (eventType === 'social_click' && metadata.socialPlatform) {
-            updateOps.$inc[`socialClicks.${metadata.socialPlatform}`] = 1;
+            incOps[`socialClicks.${metadata.socialPlatform}`] = 1;
         }
 
         if (referrer) {
             try {
                 const referrerHost = new URL(referrer).hostname;
-                updateOps.$inc[`topReferrers.${referrerHost.replace(/\./g, '_')}`] = 1;
+                incOps[`topReferrers.${referrerHost.replace(/\./g, '_')}`] = 1;
             } catch {
                 // Invalid referrer URL
             }

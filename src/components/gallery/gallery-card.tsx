@@ -42,7 +42,7 @@ export function GalleryCard({ portfolio, language, featured }: GalleryCardProps)
             {featured && (
                 <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-400 text-yellow-900 text-xs font-medium">
                     <Star className="h-3 w-3 fill-current" />
-                    Featured
+                    {featured ? 'Featured' : ''}
                 </div>
             )}
 

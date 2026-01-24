@@ -77,6 +77,7 @@ function LoginForm() {
                             placeholder="john@example.com"
                             required
                             disabled={isLoading}
+                            autoFocus
                         />
                     </div>
                     <div className="space-y-2">
@@ -114,8 +115,9 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+    const { t } = useTranslation();
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>{t('common.loading')}</div>}>
             <LoginForm />
         </Suspense>
     );

@@ -1,0 +1,735 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
+import { useGridContext } from './grid-context';
+import { useTranslation } from '@/lib/i18n';
+import {
+    PRESET_THEMES,
+    FONT_OPTIONS,
+    ThemeId,
+    getThemeById,
+    applyThemeToPreview,
+} from '@/lib/db/theme-types';
+import {
+    ArrowLeft,
+    Monitor,
+    Smartphone,
+    Edit3,
+    Eye,
+    Save,
+    Loader2,
+    Type,
+    Image,
+    BarChart3,
+    Share2,
+    Video,
+    Bold,
+    Italic,
+    Underline,
+    AlignLeft,
+    AlignCenter,
+    AlignRight,
+    AlignJustify,
+    Palette,
+    ChevronDown,
+    ChevronUp,
+    Undo,
+    Redo,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import type { BlockType, GridBlock, BlockContent, TextBlockContent } from '@/lib/db/layout-types';
+
+// Tab types
+type TabId = 'home' | 'insert' | 'design';
+
+// Block types for insert tab
+const blockTypes: { type: BlockType; icon: React.ElementType; labelKey: string }[] = [
+    { type: 'text', icon: Type, labelKey: 'text' },
+    { type: 'image', icon: Image, labelKey: 'image' },
+    { type: 'skills', icon: BarChart3, labelKey: 'skills' },
+    { type: 'social', icon: Share2, labelKey: 'social' },
+    { type: 'video', icon: Video, labelKey: 'video' },
+];
+
+// Font sizes
+const fontSizes = ['12', '14', '16', '18', '20', '24', '28', '32', '36', '48', '64', '72'];
+
+function getDefaultContent(type: BlockType): BlockContent {
+    switch (type) {
+        case 'text':
+            return {
+                type: 'text',
+                data: {
+                    variant: 'paragraph',
+                    text: { en: 'New text block', fr: 'Nouveau bloc de texte' },
+                    fontSize: 16,
+                    fontWeight: 'normal',
+                    fontStyle: 'normal',
+                    textDecoration: 'none',
+                    textAlign: 'left',
+                },
+            };
+        case 'image':
+            return {
+                type: 'image',
+                data: {
+                    imageUrl: '',
+                    alt: { en: 'Image', fr: 'Image' },
+                    fit: 'cover',
+                },
+            };
+        case 'skills':
+            return {
+                type: 'skills',
+                data: {
+                    skillIds: [],
+                    showLabels: true,
+                    showPercentage: true,
+                    layout: 'vertical',
+                },
+            };
+        case 'social':
+            return {
+                type: 'social',
+                data: {
+                    links: [],
+                    displayStyle: 'icons',
+                },
+            };
+        case 'video':
+            return {
+                type: 'video',
+                data: {
+                    source: 'youtube',
+                    url: '',
+                    autoplay: false,
+                    muted: true,
+                },
+            };
+    }
+}
+
+export function RibbonToolbar() {
+    const {
+        editMode,
+        setEditMode,
+        device,
+        setDevice,
+        saveLayout,
+        isSaving,
+        isDirty,
+        addBlock,
+        selectedBlockId,
+        blocks,
+        updateBlock,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        saveCheckpoint,
+    } = useGridContext();
+    const { t, language } = useTranslation();
+    const { resolvedTheme } = useTheme();
+
+    // Tab state
+    const [activeTab, setActiveTab] = useState<TabId>('home');
+
+    // Theme state
+    const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('tech');
+    const [customExpanded, setCustomExpanded] = useState(false);
+    const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
+
+    // Custom color overrides
+    const [customColors, setCustomColors] = useState({
+        primary: '#7c3aed',
+        secondary: '#f3f4f6',
+        accent: '#8b5cf6',
+        background: '#ffffff',
+        foreground: '#0a0a0a',
+        card: '#ffffff',
+        muted: '#f3f4f6',
+        border: '#e5e7eb',
+    });
+
+    // Load saved theme settings on mount
+    useEffect(() => {
+        async function loadThemeSettings() {
+            try {
+                const res = await fetch('/api/theme');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.themeId) {
+                        setCurrentThemeId(data.themeId);
+                    }
+                    if (data.customColors) {
+                        setCustomColors(data.customColors);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load theme settings:', error);
+            } finally {
+                setHasLoadedTheme(true);
+            }
+        }
+        loadThemeSettings();
+    }, []);
+
+    // Apply custom color to preview element and save to API
+    const applyCustomColor = (colorName: string, colorValue: string) => {
+        const newColors = { ...customColors, [colorName]: colorValue };
+        setCustomColors(newColors);
+
+        // Apply to preview immediately
+        const previewElement = document.getElementById('portfolio-preview');
+        if (previewElement) {
+            previewElement.style.setProperty(`--${colorName}`, colorValue);
+        }
+
+        // Save to API (debounced via requestAnimationFrame)
+        requestAnimationFrame(() => {
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    themeId: currentThemeId,
+                    customColors: newColors
+                }),
+            }).catch(err => console.error('Failed to save custom color:', err));
+        });
+    };
+
+    // Sync portfolio preview theme with site dark mode (only after initial load)
+    useEffect(() => {
+        if (!hasLoadedTheme) return;
+
+        const selectedTheme = getThemeById(currentThemeId);
+        if (selectedTheme) {
+            applyThemeToPreview(selectedTheme, resolvedTheme === 'dark');
+            // Only update colors from theme if user hasn't customized them
+            // (we keep the customColors from the API)
+        }
+    }, [resolvedTheme, currentThemeId, hasLoadedTheme]);
+
+    // Apply custom colors to preview after theme is applied
+    useEffect(() => {
+        if (!hasLoadedTheme) return;
+
+        const previewElement = document.getElementById('portfolio-preview');
+        if (previewElement) {
+            Object.entries(customColors).forEach(([name, value]) => {
+                previewElement.style.setProperty(`--${name}`, value);
+            });
+        }
+    }, [customColors, hasLoadedTheme]);
+
+    // Get selected block for formatting
+    const selectedBlock = blocks.find(b => b._id.toString() === selectedBlockId);
+    const isTextBlock = selectedBlock?.type === 'text';
+    const textContent = isTextBlock ? (selectedBlock.content.data as TextBlockContent) : null;
+
+    const handleSave = async () => {
+        try {
+            await saveLayout();
+            setEditMode(false);
+        } catch (error) {
+            console.error('Save failed:', error);
+        }
+    };
+
+    const handleAddBlock = async (type: BlockType) => {
+        if (!editMode) return;
+
+        try {
+            saveCheckpoint();
+            const content = getDefaultContent(type);
+
+            const res = await fetch('/api/blocks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, content: content.data, device }),
+            });
+
+            if (res.ok) {
+                const newBlock = await res.json();
+                addBlock(newBlock as GridBlock);
+            }
+        } catch (error) {
+            console.error('Failed to create block:', error);
+        }
+    };
+
+    // Text formatting handlers
+    const updateTextFormatting = (updates: Partial<TextBlockContent>) => {
+        if (!selectedBlockId || !isTextBlock || !textContent) return;
+
+        const newContent: BlockContent = {
+            type: 'text',
+            data: { ...textContent, ...updates },
+        };
+        updateBlock(selectedBlockId, newContent);
+    };
+
+    const toggleBold = () => {
+        updateTextFormatting({
+            fontWeight: textContent?.fontWeight === 'bold' ? 'normal' : 'bold',
+        });
+    };
+
+    const toggleItalic = () => {
+        updateTextFormatting({
+            fontStyle: textContent?.fontStyle === 'italic' ? 'normal' : 'italic',
+        });
+    };
+
+    const toggleUnderline = () => {
+        updateTextFormatting({
+            textDecoration: textContent?.textDecoration === 'underline' ? 'none' : 'underline',
+        });
+    };
+
+    const setAlignment = (align: 'left' | 'center' | 'right' | 'justify') => {
+        updateTextFormatting({ textAlign: align });
+    };
+
+    const setFontSize = (size: string) => {
+        updateTextFormatting({ fontSize: parseInt(size) });
+    };
+
+    const handleThemeSelect = async (themeId: ThemeId) => {
+        const selectedTheme = getThemeById(themeId);
+        if (!selectedTheme) return;
+
+        setCurrentThemeId(themeId);
+        const isDark = document.documentElement.classList.contains('dark');
+        applyThemeToPreview(selectedTheme, isDark);
+
+        try {
+            await fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ themeId }),
+            });
+            toast.success('Theme saved');
+        } catch (error) {
+            console.error('Failed to save theme:', error);
+            toast.error('Failed to save theme');
+        }
+    };
+
+    // Warn on navigation with unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty]);
+
+    const tabs = [
+        { id: 'home' as TabId, label: 'Home' },
+        { id: 'insert' as TabId, label: 'Insert' },
+        { id: 'design' as TabId, label: 'Design' },
+    ];
+
+    return (
+        <div className="sticky top-0 z-50 bg-card border-b border-border">
+            {/* Top Bar - Back, Device Toggle (centered), Edit/Preview, Save */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                {/* Left: Back + Title */}
+                <div className="flex items-center gap-4 flex-1">
+                    <Link
+                        href="/dashboard"
+                        className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        <span className="text-sm">{t('common.back')}</span>
+                    </Link>
+                    <h1 className="text-lg font-semibold text-foreground">
+                        {t('dashboard.layoutEditor.title')}
+                    </h1>
+                </div>
+
+                {/* Left Center: Undo/Redo */}
+                <div className="flex items-center gap-1 mx-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={undo}
+                        disabled={!canUndo || !editMode}
+                        title="Undo (Ctrl+Z)"
+                        className="h-8 w-8"
+                    >
+                        <Undo className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={redo}
+                        disabled={!canRedo || !editMode}
+                        title="Redo (Ctrl+Y)"
+                        className="h-8 w-8"
+                    >
+                        <Redo className="h-4 w-4" />
+                    </Button>
+                </div>
+
+                {/* Center: Device Toggle */}
+                <div className="flex items-center gap-1 bg-muted rounded-md p-1">
+                    <button
+                        onClick={() => setDevice('desktop')}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${device === 'desktop'
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                    >
+                        <Monitor className="h-4 w-4" />
+                        <span>Desktop</span>
+                    </button>
+                    <button
+                        onClick={() => setDevice('mobile')}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${device === 'mobile'
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                    >
+                        <Smartphone className="h-4 w-4" />
+                        <span>Mobile</span>
+                    </button>
+                </div>
+
+                {/* Right: Edit/Preview, Save */}
+                <div className="flex items-center gap-3 flex-1 justify-end">
+                    {/* Edit/Preview Toggle */}
+                    <button
+                        onClick={() => setEditMode(!editMode)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${editMode
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                            }`}
+                    >
+                        {editMode ? <Edit3 className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span>{editMode ? t('dashboard.layoutEditor.editing') : t('dashboard.layoutEditor.preview')}</span>
+                    </button>
+
+                    {/* Save Button */}
+                    <Button onClick={handleSave} disabled={isSaving || !isDirty} size="sm">
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                        {t('common.save')}
+                    </Button>
+                </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-1 px-4 pt-1 bg-muted/30">
+                {tabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${activeTab === tab.id
+                            ? 'bg-card text-foreground border-t border-x border-border -mb-px'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                            }`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="px-4 py-3 min-h-[64px] bg-card">
+                {/* Home Tab - Text Formatting */}
+                {activeTab === 'home' && (
+                    <div className="flex items-center gap-4">
+                        {/* Font Size */}
+                        <div className="flex items-center gap-2">
+                            <select
+                                value={textContent?.fontSize?.toString() || '16'}
+                                onChange={(e) => setFontSize(e.target.value)}
+                                disabled={!isTextBlock}
+                                className="px-2 py-1.5 bg-input border border-border rounded text-sm text-foreground w-20 disabled:opacity-50"
+                            >
+                                {fontSizes.map((size) => (
+                                    <option key={size} value={size}>{size}px</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="h-8 w-px bg-border" />
+
+                        {/* Text Formatting */}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={toggleBold}
+                                disabled={!isTextBlock}
+                                className={`p-2 rounded transition-colors ${textContent?.fontWeight === 'bold' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <Bold className="h-4 w-4" />
+                            </button>
+                            <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={toggleItalic}
+                                disabled={!isTextBlock}
+                                className={`p-2 rounded transition-colors ${textContent?.fontStyle === 'italic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <Italic className="h-4 w-4" />
+                            </button>
+                            <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={toggleUnderline}
+                                disabled={!isTextBlock}
+                                className={`p-2 rounded transition-colors ${textContent?.textDecoration === 'underline' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <Underline className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="h-8 w-px bg-border" />
+
+                        {/* Text Alignment */}
+                        <div className="flex items-center gap-1">
+                            <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => setAlignment('left')}
+                                disabled={!isTextBlock}
+                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'left' || !textContent?.textAlign ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <AlignLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => setAlignment('center')}
+                                disabled={!isTextBlock}
+                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'center' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <AlignCenter className="h-4 w-4" />
+                            </button>
+                            <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => setAlignment('right')}
+                                disabled={!isTextBlock}
+                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'right' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <AlignRight className="h-4 w-4" />
+                            </button>
+                            <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => setAlignment('justify')}
+                                disabled={!isTextBlock}
+                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'justify' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <AlignJustify className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {!isTextBlock && (
+                            <span className="text-sm text-muted-foreground ml-2">
+                                {t('dashboard.layoutEditor.selectTextBlock')}
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                {/* Insert Tab */}
+                {activeTab === 'insert' && (
+                    <div className="flex items-center gap-2">
+                        {blockTypes.map(({ type, icon: Icon, labelKey }) => (
+                            <button
+                                key={type}
+                                onClick={() => handleAddBlock(type)}
+                                disabled={!editMode}
+                                className={`flex flex-col items-center gap-1 px-4 py-2 rounded-md transition-colors ${editMode
+                                    ? 'hover:bg-muted text-foreground'
+                                    : 'text-muted-foreground cursor-not-allowed opacity-50'
+                                    }`}
+                            >
+                                <Icon className="h-5 w-5" />
+                                <span className="text-xs">{t(`dashboard.layoutEditor.${labelKey}` as string)}</span>
+                            </button>
+                        ))}
+
+                        {!editMode && (
+                            <span className="text-sm text-muted-foreground ml-4">
+                                {t('dashboard.layoutEditor.enableEditMode')}
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                {/* Design Tab */}
+                {activeTab === 'design' && (
+                    <div className="flex items-center gap-6">
+                        {/* Theme Selector */}
+                        <div className="flex items-center gap-3">
+                            <Palette className="h-4 w-4 text-muted-foreground" />
+                            <select
+                                value={currentThemeId}
+                                onChange={(e) => handleThemeSelect(e.target.value as ThemeId)}
+                                className="px-3 py-1.5 bg-input border border-border rounded text-sm text-foreground min-w-[160px]"
+                            >
+                                {PRESET_THEMES.map((theme) => (
+                                    <option key={theme.id} value={theme.id}>
+                                        {theme.name[language]}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="h-8 w-px bg-border" />
+
+                        {/* Theme Preview Swatches */}
+                        <div className="flex items-center gap-2">
+                            {PRESET_THEMES.map((themeOption) => (
+                                <button
+                                    key={themeOption.id}
+                                    onClick={() => handleThemeSelect(themeOption.id)}
+                                    className={`w-6 h-6 rounded-full border-2 transition-all ${currentThemeId === themeOption.id
+                                        ? 'border-primary ring-2 ring-primary/20'
+                                        : 'border-border hover:border-muted-foreground'
+                                        }`}
+                                    style={{ backgroundColor: themeOption.colors.light.primary }}
+                                    title={themeOption.name[language]}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Custom Design Expander - Always visible */}
+                        <div className="h-8 w-px bg-border" />
+                        <button
+                            onClick={() => setCustomExpanded(!customExpanded)}
+                            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                            {customExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            {t('dashboard.layoutEditor.customize')}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Custom Design Panel (expanded) - Available for all themes */}
+            {activeTab === 'design' && customExpanded && (
+                <div className="px-4 py-3 bg-muted/30 border-t border-border space-y-4">
+                    {/* Font Dropdowns */}
+                    <div className="flex items-center gap-6">
+                        <span className="text-xs font-medium text-foreground">{t('dashboard.layoutEditor.fonts')}:</span>
+                        <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.sans')}:</label>
+                            <select className="px-2 py-1 bg-input border border-border rounded text-xs text-foreground">
+                                {FONT_OPTIONS.filter(f => f.value.includes('sans') || f.value.includes('Inter') || f.value.includes('Roboto')).map((font) => (
+                                    <option key={font.value} value={font.value}>{font.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.serif')}:</label>
+                            <select className="px-2 py-1 bg-input border border-border rounded text-xs text-foreground">
+                                {FONT_OPTIONS.filter(f => f.value.includes('serif') || f.value.includes('Playfair')).map((font) => (
+                                    <option key={font.value} value={font.value}>{font.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.mono')}:</label>
+                            <select className="px-2 py-1 bg-input border border-border rounded text-xs text-foreground">
+                                {FONT_OPTIONS.filter(f => f.value.includes('mono') || f.value.includes('JetBrains')).map((font) => (
+                                    <option key={font.value} value={font.value}>{font.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Color Fields */}
+                    <div className="flex flex-wrap items-center gap-4">
+                        <span className="text-xs font-medium text-foreground">{t('dashboard.layoutEditor.colors')}:</span>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.primary')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.primary}
+                                onChange={(e) => applyCustomColor('primary', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.secondary')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.secondary}
+                                onChange={(e) => applyCustomColor('secondary', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.accent')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.accent}
+                                onChange={(e) => applyCustomColor('accent', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.background')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.background}
+                                onChange={(e) => applyCustomColor('background', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.foreground')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.foreground}
+                                onChange={(e) => applyCustomColor('foreground', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.card')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.card}
+                                onChange={(e) => applyCustomColor('card', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.muted')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.muted}
+                                onChange={(e) => applyCustomColor('muted', e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.border')}:</label>
+                            <input
+                                type="color"
+                                className="w-6 h-6 rounded border border-border cursor-pointer"
+                                value={customColors.border}
+                                onChange={(e) => applyCustomColor('border', e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

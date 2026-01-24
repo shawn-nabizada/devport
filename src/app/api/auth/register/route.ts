@@ -49,8 +49,8 @@ export async function POST(request: Request) {
             );
         }
 
-        // Check if username already exists
-        const existingUsername = await usersCollection.findOne({ username });
+        // Check if username already exists (case-insensitive)
+        const existingUsername = await usersCollection.findOne({ username: username.toLowerCase() });
         if (existingUsername) {
             return NextResponse.json(
                 { error: 'Username already taken' },
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         await usersCollection.insertOne({
             name,
             email,
-            username,
+            username: username.toLowerCase(),
             password: hashedPassword,
             role: 'user',
             emailVerified: null,

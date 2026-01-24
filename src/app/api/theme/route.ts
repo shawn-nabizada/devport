@@ -25,8 +25,8 @@ export async function GET() {
         if (!settings) {
             // Return default theme
             return NextResponse.json({
-                themeId: 'minimalist',
-                theme: PRESET_THEMES.find(t => t.id === 'minimalist'),
+                themeId: 'tech',
+                theme: PRESET_THEMES.find(t => t.id === 'tech'),
             });
         }
 
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         const { themeId, customColors, customTypography, customSpacing } = body;
 
         // Validate theme ID
-        const validThemeIds: ThemeId[] = ['minimalist', 'bold-innovator', 'creative', 'professional', 'dark-mode', 'custom'];
+        const validThemeIds: ThemeId[] = ['tech', 'amber', 'latte', 'retro', 'sodapop', 'custom'];
         if (!themeId || !validThemeIds.includes(themeId)) {
             return NextResponse.json({ error: 'Invalid theme ID' }, { status: 400 });
         }

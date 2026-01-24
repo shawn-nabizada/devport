@@ -106,26 +106,26 @@ export default function EducationPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>{t('education.degreeEnglish')}</Label>
-                                        <Input value={formData.degreeEn} onChange={(e) => setFormData({ ...formData, degreeEn: e.target.value })} placeholder="e.g. Bachelor of Science" required />
+                                        <Input value={formData.degreeEn} onChange={(e) => setFormData({ ...formData, degreeEn: e.target.value })} placeholder={t('education.degreePlaceholderEn')} required />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>{t('education.degreeFrench')}</Label>
-                                        <Input value={formData.degreeFr} onChange={(e) => setFormData({ ...formData, degreeFr: e.target.value })} placeholder="e.g. Baccalauréat en Sciences" required />
+                                        <Input value={formData.degreeFr} onChange={(e) => setFormData({ ...formData, degreeFr: e.target.value })} placeholder={t('education.degreePlaceholderFr')} required />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>{t('education.fieldEnglish')}</Label>
-                                        <Input value={formData.fieldEn} onChange={(e) => setFormData({ ...formData, fieldEn: e.target.value })} placeholder="e.g. Computer Science" />
+                                        <Input value={formData.fieldEn} onChange={(e) => setFormData({ ...formData, fieldEn: e.target.value })} placeholder={t('education.fieldPlaceholderEn')} />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>{t('education.fieldFrench')}</Label>
-                                        <Input value={formData.fieldFr} onChange={(e) => setFormData({ ...formData, fieldFr: e.target.value })} placeholder="e.g. Informatique" />
+                                        <Input value={formData.fieldFr} onChange={(e) => setFormData({ ...formData, fieldFr: e.target.value })} placeholder={t('education.fieldPlaceholderFr')} />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>{t('education.location')}</Label>
-                                    <Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder="City, Country" />
+                                    <Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder={t('education.locationPlaceholder')} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">

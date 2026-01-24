@@ -1,14 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/password-input';
+import { PasswordStrengthMeter } from '@/components/ui/password-strength-meter';
 import { Label } from '@/components/ui/label';
-import { Check, X, Circle } from 'lucide-react';
+import { Check, X, Circle, Loader2 } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 import {
     Card,
     CardContent,
@@ -23,10 +25,47 @@ export default function RegisterPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Form State
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
+    // Username Availability State
+    const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+    const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+    const debouncedUsername = useDebounce(username, 500);
 
+    // Check availability effect
+    useEffect(() => {
+        if (!debouncedUsername) {
+            setUsernameAvailable(null);
+            return;
+        }
+
+        // Skip check if invalid format
+        if (!/^[a-z0-9_-]+$/.test(debouncedUsername)) {
+            setUsernameAvailable(false);
+            return;
+        }
+
+        async function checkAvailability() {
+            setIsCheckingUsername(true);
+            try {
+                const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(debouncedUsername)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setUsernameAvailable(data.available);
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setIsCheckingUsername(false);
+            }
+        }
+
+        checkAvailability();
+    }, [debouncedUsername]);
 
     const isPasswordValid =
         /.{8,}/.test(password) &&
@@ -44,21 +83,25 @@ export default function RegisterPage() {
         const data = {
             name: formData.get('name') as string,
             email: formData.get('email') as string,
-            username: formData.get('username') as string,
-            password: formData.get('password') as string,
-            confirmPassword: formData.get('confirmPassword') as string,
+            username: username, // Use state
+            password: password,
+            confirmPassword: confirmPassword, // unused in body typically but checked here
         };
 
-        if (data.password !== data.confirmPassword) {
+        if (password !== confirmPassword) {
             setError(t('auth.passwordsMismatch'));
             setIsLoading(false);
             return;
         }
 
+        if (usernameAvailable === false) {
+            setError(t('auth.usernameTaken') || 'Username is taken or invalid');
+            setIsLoading(false);
+            return;
+        }
+
         if (!isPasswordValid) {
-            // Let the user see the checklist validation, or show generic error
-            // Ideally the button is disabled or we show error
-            return; // checklist shows what's missing
+            return;
         }
 
         try {
@@ -121,18 +164,35 @@ export default function RegisterPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="username">{t('auth.username')}</Label>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">devport.com/</span>
-                            <Input
-                                id="username"
-                                name="username"
-                                placeholder="johndoe"
-                                pattern="^[a-z0-9_\\-]+$"
-                                title={t('auth.usernameHelp')}
-                                required
-                                disabled={isLoading}
-                            />
+                        <div className="relative flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground shrink-0">devport.com/</span>
+                            <div className="relative w-full">
+                                <Input
+                                    id="username"
+                                    name="username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="johndoe"
+                                    pattern="^[a-z0-9_\\-]+$"
+                                    title={t('auth.usernameHelp')}
+                                    required
+                                    disabled={isLoading}
+                                    className={usernameAvailable === true ? 'border-green-500 ring-green-500/20' : usernameAvailable === false ? 'border-destructive ring-destructive/20' : ''}
+                                />
+                                <div className="absolute right-3 top-2.5">
+                                    {isCheckingUsername ? (
+                                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                    ) : username && usernameAvailable === true ? (
+                                        <Check className="h-4 w-4 text-green-500" />
+                                    ) : username && usernameAvailable === false ? (
+                                        <X className="h-4 w-4 text-destructive" />
+                                    ) : null}
+                                </div>
+                            </div>
                         </div>
+                        {username && usernameAvailable === false && !isCheckingUsername && (
+                            <p className="text-xs text-destructive">Username is taken or invalid</p>
+                        )}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="password">{t('auth.password')}</Label>
@@ -144,6 +204,8 @@ export default function RegisterPage() {
                             required
                             disabled={isLoading}
                         />
+                        {password && <PasswordStrengthMeter password={password} />}
+
                         <div className="text-xs text-muted-foreground space-y-1 mt-2 p-3 bg-muted/50 rounded-md">
                             <p className="font-medium mb-1">{t('auth.passwordRequirements')}</p>
 
@@ -186,7 +248,7 @@ export default function RegisterPage() {
                     </div>
                 </CardContent>
                 <CardFooter className="flex flex-col gap-4 mt-4">
-                    <Button type="submit" className="w-full" disabled={isLoading || !isPasswordValid || password !== confirmPassword}>
+                    <Button type="submit" className="w-full" disabled={isLoading || !isPasswordValid || password !== confirmPassword || usernameAvailable === false}>
                         {isLoading ? t('common.loading') : t('auth.register')}
                     </Button>
                     <p className="text-center text-sm text-muted-foreground">

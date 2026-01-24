@@ -125,7 +125,7 @@ export default function ExperiencePage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>{t('experience.location')}</Label>
-                                    <Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder="City, Country" />
+                                    <Input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder={t('experience.locationPlaceholder')} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">

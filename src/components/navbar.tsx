@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useSession, signOut } from 'next-auth/react';
 import { useTranslation } from '@/lib/i18n';
 import { LanguageToggle } from './language-toggle';
-import { LogOut, Settings, LayoutDashboard, Compass } from 'lucide-react';
+const ModeToggle = dynamic(() => import('./mode-toggle').then(mod => mod.ModeToggle), { ssr: false });
+import { LogOut, Settings, LayoutDashboard, Compass, Ship } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export function Navbar() {
@@ -28,21 +30,18 @@ export function Navbar() {
     const isAuthenticated = status === 'authenticated' && session?.user;
 
     return (
-        <nav className="fixed top-0 left-0 right-0 z-[999] w-full border-b border-border bg-white dark:bg-gray-900">
+        <nav
+            className="fixed top-0 left-0 right-0 z-[999] w-full border-b border-border bg-background"
+            style={{ viewTransitionName: 'topnav' } as React.CSSProperties}
+        >
             <div className="container mx-auto flex h-24 items-center px-4">
                 {/* Left side - Logo */}
                 <Link
                     href="/"
-                    className="flex items-center gap-2 font-bold text-2xl hover:opacity-80 transition-opacity"
+                    className="flex items-center gap-2 font-bold text-2xl hover:opacity-80 transition-opacity text-foreground"
                 >
-                    <Image
-                        src="/DevPortLogo.svg"
-                        alt="DevPort"
-                        width={32}
-                        height={32}
-                        className="w-8 h-8"
-                    />
-                    <span className="hidden sm:inline" style={{ color: '#1647a7' }}>DevPort</span>
+                    <Ship className="w-8 h-8 text-primary" />
+                    <span className="hidden sm:inline">DevPort</span>
                 </Link>
 
                 {/* Center - Nav links */}
@@ -68,6 +67,9 @@ export function Navbar() {
 
                 {/* Right side - User controls */}
                 <div className="flex items-center gap-4">
+                    {/* Theme Toggle */}
+                    <ModeToggle />
+
                     {/* Language Toggle */}
                     <LanguageToggle />
 

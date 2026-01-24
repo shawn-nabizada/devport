@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { GridBlock } from '@/lib/db/layout-types';
 import { useGridContext } from './grid-context';
 import { TextBlock } from './blocks/text-block';
@@ -9,24 +9,29 @@ import { SkillsBlock } from './blocks/skills-block';
 import { SocialBlock } from './blocks/social-block';
 import { VideoBlock } from './blocks/video-block';
 import { Trash2, GripVertical } from 'lucide-react';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 interface BlockRendererProps {
     block: GridBlock;
+    onInteract?: (blockId: string) => void;
 }
 
-export function BlockRenderer({ block }: BlockRendererProps) {
-    const { editMode, selectedBlockId, setSelectedBlockId, removeBlock } = useGridContext();
+function BlockRendererComponent({ block, onInteract }: BlockRendererProps) {
+    const { editMode, selectedBlockId, setSelectedBlockId, removeBlock, saveCheckpoint } = useGridContext();
     const isSelected = selectedBlockId === block._id.toString();
 
     const handleSelect = () => {
         if (editMode) {
             setSelectedBlockId(block._id.toString());
+        } else if (onInteract) {
+            onInteract(block._id.toString());
         }
     };
 
     const handleDelete = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm('Are you sure you want to delete this block?')) {
+            saveCheckpoint(); // Checkpoint before delete
             removeBlock(block._id.toString());
         }
     };
@@ -38,11 +43,11 @@ export function BlockRenderer({ block }: BlockRendererProps) {
             case 'image':
                 return <ImageBlock data={block.content.data} blockId={block._id.toString()} />;
             case 'skills':
-                return <SkillsBlock data={block.content.data} blockId={block._id.toString()} />;
+                return <SkillsBlock data={block.content.data} />;
             case 'social':
-                return <SocialBlock data={block.content.data} blockId={block._id.toString()} />;
+                return <SocialBlock data={block.content.data} />;
             case 'video':
-                return <VideoBlock data={block.content.data} blockId={block._id.toString()} />;
+                return <VideoBlock data={block.content.data} />;
             default:
                 return <div className="p-4 text-gray-500">Unknown block type</div>;
         }
@@ -76,8 +81,12 @@ export function BlockRenderer({ block }: BlockRendererProps) {
             )}
 
             <div className="h-full w-full">
-                {renderBlockContent()}
+                <ErrorBoundary>
+                    {renderBlockContent()}
+                </ErrorBoundary>
             </div>
         </div>
     );
 }
+
+export const BlockRenderer = memo(BlockRendererComponent);

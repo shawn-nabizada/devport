@@ -239,7 +239,7 @@ export default function ProjectsPage() {
                                         onChange={(e) =>
                                             setFormData({ ...formData, technologies: e.target.value })
                                         }
-                                        placeholder="React, Node.js, MongoDB"
+                                        placeholder={t('projects.techPlaceholder')}
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">

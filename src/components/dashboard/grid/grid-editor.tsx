@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import GridLayout, { Layout } from 'react-grid-layout';
+import GridLayout, { LayoutItem as RGLLayoutItem, Layout as RGLLayout, GridLayoutProps } from 'react-grid-layout';
+
+// Define our own EventCallback type that matches what GridLayout accepts
+type GridEventCallback = NonNullable<GridLayoutProps['onDrag']>;
 import { useGridContext } from './grid-context';
 import { BlockRenderer } from './block-renderer';
 import type { LayoutItem } from '@/lib/db/layout-types';
@@ -26,6 +29,10 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
         device,
         selectedBlockId,
         isLoadingDevice,
+        undo,
+        redo,
+        saveCheckpoint,
+        removeBlock,
     } = useGridContext();
 
     const [isDragging, setIsDragging] = useState(false);
@@ -37,10 +44,10 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
     const colWidth = (gridWidth - 32) / cols; // Account for container padding
     const margin = 16;
 
-    const handleLayoutChange = useCallback((newLayout: Layout[]) => {
+    const handleLayoutChange = useCallback((newLayout: RGLLayout) => {
         if (!editMode) return;
 
-        const updatedLayout: LayoutItem[] = newLayout.map((item) => ({
+        const updatedLayout: LayoutItem[] = newLayout.map((item: RGLLayoutItem) => ({
             i: item.i,
             x: item.x,
             y: item.y,
@@ -57,15 +64,16 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
     }, [editMode, setLayout]);
 
     const handleDragStart = useCallback(() => {
+        saveCheckpoint();
         setIsDragging(true);
-    }, []);
+    }, [saveCheckpoint]);
 
-    const handleDrag = useCallback((
-        _layout: Layout[],
-        _oldItem: Layout,
-        newItem: Layout,
+    const handleDrag: GridEventCallback = useCallback((
+        _layout: RGLLayout,
+        _oldItem: RGLLayoutItem | null,
+        newItem: RGLLayoutItem | null,
     ) => {
-        if (!editMode) return;
+        if (!editMode || !newItem) return;
 
         // Calculate snap guides based on other items
         const guides: SnapGuide[] = [];
@@ -78,7 +86,7 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
 
         // Add alignment guides based on other blocks
         layout.forEach((item) => {
-            if (item.i === newItem.i) return;
+            if (item.i === newItem!.i) return;
 
             // Left edge alignment
             const leftEdge = margin + item.x * colWidth;
@@ -135,8 +143,42 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
         setSnapGuides([]);
     }, []);
 
+    // Keyboard Shortcuts
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!editMode) return;
+
+            // Undo: Ctrl+Z
+            if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+            }
+            // Redo: Ctrl+Shift+Z or Ctrl+Y
+            if ((e.ctrlKey && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
+                e.preventDefault();
+                redo();
+            }
+            // Delete
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedBlockId) {
+                    // Ignore if typing in input
+                    const tagName = (e.target as HTMLElement).tagName;
+                    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) return;
+                    if ((e.target as HTMLElement).isContentEditable) return;
+
+                    e.preventDefault();
+                    saveCheckpoint();
+                    removeBlock(selectedBlockId);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [editMode, undo, redo, saveCheckpoint, removeBlock, selectedBlockId]);
+
     // Convert our layout items to react-grid-layout format
-    const gridLayout: Layout[] = layout.map((item) => ({
+    const gridLayout: RGLLayoutItem[] = layout.map((item) => ({
         ...item,
         isDraggable: editMode,
         isResizable: editMode,
@@ -154,7 +196,16 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
     }
 
     return (
-        <div className={`grid-editor relative ${device === 'mobile' ? 'max-w-[400px] mx-auto' : ''}`}>
+        <div
+            id="portfolio-preview"
+            className={`grid-editor relative rounded-lg ${device === 'mobile' ? 'max-w-[400px] mx-auto' : ''}`}
+            style={{
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)',
+                minHeight: '400px',
+                padding: '16px',
+            }}
+        >
             {/* Snap Guides */}
             {isDragging && editMode && snapGuides.map((guide, index) => (
                 <div
@@ -173,9 +224,15 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
             <GridLayout
                 className="layout"
                 layout={gridLayout}
-                cols={cols}
-                rowHeight={rowHeight}
                 width={gridWidth}
+                gridConfig={{
+                    cols,
+                    rowHeight,
+                    margin: [margin, margin],
+                    containerPadding: [margin, margin],
+                }}
+                dragConfig={{ enabled: editMode }}
+                resizeConfig={{ enabled: editMode }}
                 onLayoutChange={handleLayoutChange}
                 onDragStart={handleDragStart}
                 onDrag={handleDrag}
@@ -183,20 +240,15 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
                 onResizeStart={handleDragStart}
                 onResize={handleDrag}
                 onResizeStop={handleDragStop}
-                isDraggable={editMode}
-                isResizable={editMode}
-                margin={[margin, margin]}
-                containerPadding={[margin, margin]}
-                useCSSTransforms={true}
-                compactType="vertical"
-                preventCollision={false}
             >
                 {blocks.map((block) => {
                     const isSelected = selectedBlockId === block._id.toString();
                     return (
                         <div
                             key={block._id.toString()}
-                            className={`bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-visible ${isSelected ? 'z-50' : 'z-0'}`}
+                            className={`bg-card rounded-lg shadow-md overflow-visible ${isSelected ? 'z-50' : 'z-0'
+                                } ${editMode ? 'border-2 border-dashed border-muted-foreground/40' : 'border border-border'
+                                }`}
                             style={isSelected ? { zIndex: 50 } : undefined}
                         >
                             <BlockRenderer block={block} />

@@ -25,7 +25,7 @@ export async function GET(
         const userId = user._id;
 
         // Fetch all portfolio data in parallel
-        const [profile, skills, projects, experience, education, hobbies, resumes, testimonials] = await Promise.all([
+        const [profile, skills, projects, experience, education, hobbies, resumes, testimonials, themeSettings, layouts, blocks] = await Promise.all([
             db.collection('profiles').findOne({ userId }),
             db.collection('skills').find({ userId }).sort({ order: 1 }).toArray(),
             db.collection('projects').find({ userId }).sort({ order: 1 }).toArray(),
@@ -34,6 +34,9 @@ export async function GET(
             db.collection('hobbies').find({ userId }).sort({ order: 1 }).toArray(),
             db.collection('resumes').find({ userId }).toArray(),
             db.collection('testimonials').find({ userId, status: 'approved' }).sort({ createdAt: -1 }).toArray(),
+            db.collection('themeSettings').findOne({ userId }),
+            db.collection('layouts').find({ userId }).toArray(),
+            db.collection('blocks').find({ userId }).toArray(),
         ]);
 
         return NextResponse.json({
@@ -46,6 +49,10 @@ export async function GET(
             hobbies,
             resumes,
             testimonials,
+            themeId: themeSettings?.themeId || 'tech',
+            customColors: themeSettings?.customColors || null,
+            layouts,
+            blocks,
         });
     } catch (error) {
         console.error('Error fetching portfolio:', error);

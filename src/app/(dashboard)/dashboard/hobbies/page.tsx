@@ -85,11 +85,11 @@ export default function HobbiesPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>{t('hobbies.nameEnglish')}</Label>
-                                        <Input value={formData.nameEn} onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })} placeholder="e.g. Photography" required />
+                                        <Input value={formData.nameEn} onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })} placeholder={t('hobbies.namePlaceholderEn')} required />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>{t('hobbies.nameFrench')}</Label>
-                                        <Input value={formData.nameFr} onChange={(e) => setFormData({ ...formData, nameFr: e.target.value })} placeholder="e.g. Photographie" required />
+                                        <Input value={formData.nameFr} onChange={(e) => setFormData({ ...formData, nameFr: e.target.value })} placeholder={t('hobbies.namePlaceholderFr')} required />
                                     </div>
                                 </div>
                                 <div className="space-y-2">

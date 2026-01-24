@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import type { TextBlockContent } from '@/lib/db/layout-types';
 import { useGridContext } from '../grid-context';
 import { useTranslation } from '@/lib/i18n';
@@ -11,7 +11,7 @@ interface TextBlockProps {
 }
 
 export function TextBlock({ data, blockId }: TextBlockProps) {
-    const { language } = useTranslation();
+    const { t, language } = useTranslation();
     const { editMode, updateBlock, blocks } = useGridContext();
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(data.text[language] || data.text.en);
@@ -20,10 +20,16 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
 
     const text = data.text[language] || data.text.en;
 
-    // Update local state when language changes
-    useEffect(() => {
+    // Update local state when language changes (Adjusting state during render)
+    const [prevLang, setPrevLang] = useState(language);
+    const [prevText, setPrevText] = useState(data.text);
+
+    if (prevLang !== language || prevText !== data.text) {
+        setPrevLang(language);
+        setPrevText(data.text);
         setEditText(data.text[language] || data.text.en);
-    }, [language, data.text]);
+    }
+
 
     const handleSave = () => {
         const block = blocks.find(b => b._id.toString() === blockId);
@@ -99,7 +105,7 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
                         onBlur={handleBlur}
                         onKeyDown={handleKeyDown}
                         className="w-full h-full resize-none border border-blue-500 rounded p-2 outline-none bg-transparent"
-                        placeholder="Press Enter to save, Shift+Enter for new line"
+                        placeholder={t('dashboard.layoutEditor.textPlaceholder')}
                     />
                 )}
             </div>
@@ -121,7 +127,7 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
                 </p>
             )}
             {editMode && (
-                <p className="text-xs text-gray-400 mt-2">Click to edit</p>
+                <p className="text-xs text-gray-400 mt-2">{t('dashboard.layoutEditor.clickToEdit')}</p>
             )}
         </div>
     );

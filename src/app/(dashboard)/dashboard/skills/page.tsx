@@ -158,7 +158,7 @@ export default function SkillsPage() {
                                             onChange={(e) =>
                                                 setFormData({ ...formData, nameEn: e.target.value })
                                             }
-                                            placeholder="e.g. JavaScript"
+                                            placeholder={t('skills.placeholderName')}
                                             required
                                         />
                                     </div>
@@ -170,7 +170,7 @@ export default function SkillsPage() {
                                             onChange={(e) =>
                                                 setFormData({ ...formData, nameFr: e.target.value })
                                             }
-                                            placeholder="e.g. JavaScript"
+                                            placeholder={t('skills.placeholderName')}
                                             required
                                         />
                                     </div>
@@ -183,7 +183,7 @@ export default function SkillsPage() {
                                         onChange={(e) =>
                                             setFormData({ ...formData, category: e.target.value })
                                         }
-                                        placeholder="e.g. Frontend, Backend, DevOps"
+                                        placeholder={t('skills.placeholderCategory')}
                                     />
                                 </div>
                                 <div className="space-y-2">

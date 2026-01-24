@@ -29,7 +29,7 @@ interface ThemeProviderProps {
     initialThemeId?: ThemeId;
 }
 
-export function ThemeProvider({ children, initialThemeId = 'minimalist' }: ThemeProviderProps) {
+export function ThemeProvider({ children, initialThemeId = 'tech' }: ThemeProviderProps) {
     const [themeId, setThemeIdState] = useState<ThemeId>(initialThemeId);
     const [currentTheme, setCurrentTheme] = useState<ThemeConfig>(
         getThemeById(initialThemeId) || PRESET_THEMES[0]
@@ -48,22 +48,18 @@ export function ThemeProvider({ children, initialThemeId = 'minimalist' }: Theme
             root.style.setProperty(cssVarName, value);
         });
 
-        // Apply typography variables
-        root.style.setProperty('--font-family', theme.typography.fontFamily);
-        root.style.setProperty('--heading-font-family', theme.typography.headingFontFamily);
-        root.style.setProperty('--base-font-size', theme.typography.baseFontSize);
-        root.style.setProperty('--heading-font-weight', theme.typography.headingFontWeight);
-        root.style.setProperty('--line-height', theme.typography.lineHeight);
+        // Apply font variables
+        root.style.setProperty('--font-sans', theme.fonts.sans);
+        root.style.setProperty('--font-serif', theme.fonts.serif);
+        root.style.setProperty('--font-mono', theme.fonts.mono);
 
-        // Apply spacing variables
-        root.style.setProperty('--radius', theme.spacing.borderRadius);
-        root.style.setProperty('--card-padding', theme.spacing.cardPadding);
-        root.style.setProperty('--section-spacing', theme.spacing.sectionSpacing);
+        // Apply radius
+        root.style.setProperty('--radius', theme.radius);
     }, []);
 
     // Load font if needed
     const loadFonts = useCallback((theme: ThemeConfig) => {
-        const fonts = new Set([theme.typography.fontFamily, theme.typography.headingFontFamily]);
+        const fonts = new Set([theme.fonts.sans, theme.fonts.serif, theme.fonts.mono]);
 
         fonts.forEach(fontFamily => {
             const fontName = fontFamily.split(',')[0].trim();

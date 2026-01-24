@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
 import {
     Card,
     CardContent,
@@ -21,23 +22,39 @@ function VerifyForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const email = searchParams.get('email') || '';
+
+    // State
+    const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
-    async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
+    // Resend Timer State
+    const [resendTimer, setResendTimer] = useState(30);
+    const [isResending, setIsResending] = useState(false);
+    const [resendMessage, setResendMessage] = useState('');
+
+    // Timer effect
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
+
+    // Derived generic verify function
+    async function verifyCode(codeToVerify: string) {
         setIsLoading(true);
         setError('');
-
-        const formData = new FormData(e.currentTarget);
-        const code = formData.get('code') as string;
 
         try {
             const res = await fetch('/api/auth/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, code }),
+                body: JSON.stringify({ email, code: codeToVerify }),
             });
 
             const result = await res.json();
@@ -50,8 +67,48 @@ function VerifyForm() {
             setTimeout(() => router.push('/login'), 2000);
         } catch (err) {
             setError(err instanceof Error ? err.message : t('auth.verificationFailed'));
-        } finally {
             setIsLoading(false);
+        }
+    }
+
+    async function navigateSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        verifyCode(code);
+    }
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+        setCode(val);
+        if (val.length === 6) {
+            verifyCode(val);
+        }
+    };
+
+    async function handleResend() {
+        if (resendTimer > 0) return;
+
+        setIsResending(true);
+        setResendMessage('');
+        setError('');
+
+        try {
+            const res = await fetch('/api/auth/resend-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+
+            if (res.ok) {
+                setResendTimer(60); // Reset to 60s
+                setResendMessage(t('auth.codeResent') || 'Code sent!');
+            } else {
+                setError('Failed to resend');
+            }
+        } catch (err) {
+            console.error(err);
+            setError('Error resending code');
+        } finally {
+            setIsResending(false);
         }
     }
 
@@ -78,11 +135,16 @@ function VerifyForm() {
                     {t('auth.verificationCodeSent')} <strong>{email}</strong>
                 </CardDescription>
             </CardHeader>
-            <form onSubmit={onSubmit}>
+            <form onSubmit={navigateSubmit}>
                 <CardContent className="space-y-4">
                     {error && (
                         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
                             {error}
+                        </div>
+                    )}
+                    {resendMessage && (
+                        <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">
+                            {resendMessage}
                         </div>
                     )}
                     <div className="space-y-2">
@@ -90,6 +152,8 @@ function VerifyForm() {
                         <Input
                             id="code"
                             name="code"
+                            value={code}
+                            onChange={handleChange}
                             placeholder="123456"
                             required
                             maxLength={6}
@@ -97,13 +161,34 @@ function VerifyForm() {
                             title="6-digit code"
                             disabled={isLoading}
                             className="text-center text-2xl tracking-widest"
+                            autoFocus
                         />
                     </div>
                 </CardContent>
                 <CardFooter className="flex flex-col gap-4 mt-4">
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button type="submit" className="w-full" disabled={isLoading || code.length !== 6}>
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {isLoading ? t('common.loading') : t('auth.verifyEmail')}
                     </Button>
+
+                    <div className="text-center">
+                        <Button
+                            type="button"
+                            variant="link"
+                            className="text-sm text-muted-foreground"
+                            onClick={handleResend}
+                            disabled={resendTimer > 0 || isResending}
+                        >
+                            {isResending ? (
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                            ) : null}
+                            {resendTimer > 0
+                                ? `${t('auth.resendCode') || 'Resend Code'} (${resendTimer}s)`
+                                : (t('auth.resendCode') || 'Resend Code')
+                            }
+                        </Button>
+                    </div>
+
                     <p className="text-center text-sm text-muted-foreground">
                         <Link href="/register" className="font-medium text-primary hover:underline">
                             ← {t('auth.backToRegister')}
@@ -116,8 +201,9 @@ function VerifyForm() {
 }
 
 export default function VerifyPage() {
+    const { t } = useTranslation();
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>{t('common.loading')}</div>}>
             <VerifyForm />
         </Suspense>
     );

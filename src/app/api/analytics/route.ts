@@ -26,6 +26,10 @@ interface AnalyticsSummaryResponse {
         referrer: string;
         count: number;
     }>;
+    topLocations: Array<{
+        country: string;
+        count: number;
+    }>;
 }
 
 /**
@@ -62,6 +66,7 @@ export async function GET(request: NextRequest) {
         let totalContactSubmissions = 0;
         const projectClicks: Record<string, number> = {};
         const referrerCounts: Record<string, number> = {};
+        const locationCounts: Record<string, number> = {};
 
         dailyStats.forEach(day => {
             totalPageViews += day.pageViews || 0;
@@ -130,6 +135,15 @@ export async function GET(request: NextRequest) {
             .sort((a, b) => b.count - a.count)
             .slice(0, 5);
 
+        // Format top locations
+        const topLocations = Object.entries(locationCounts)
+            .map(([country, count]) => ({
+                country,
+                count,
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+
         // Format daily stats for chart
         const formattedDailyStats = dailyStats.map(day => ({
             date: day.date.toISOString().split('T')[0],
@@ -148,6 +162,7 @@ export async function GET(request: NextRequest) {
             dailyStats: formattedDailyStats,
             topProjects: projectsWithTitles,
             topReferrers,
+            topLocations,
         };
 
         return NextResponse.json(response);

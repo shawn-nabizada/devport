@@ -7,14 +7,21 @@ import { fr } from './translations/fr';
 
 const translations: Record<Language, Translations> = { en, fr };
 
-type TranslationKey = {
-    [K in keyof Translations]: `${K}.${string & keyof Translations[K]}`;
-}[keyof Translations];
+// Helper type to recursively generate nested key paths
+type NestedKeyOf<T, Prefix extends string = ''> = {
+    [K in keyof T]: T[K] extends Record<string, unknown>
+    ? T[K] extends Record<string, string>
+    ? `${Prefix}${K & string}.${keyof T[K] & string}`
+    : NestedKeyOf<T[K], `${Prefix}${K & string}.`>
+    : `${Prefix}${K & string}`;
+}[keyof T];
+
+export type TranslationKey = NestedKeyOf<Translations>;
 
 export function useTranslation() {
     const { language, setLanguage } = useLanguage();
 
-    const t = (key: TranslationKey): string => {
+    const t = (key: TranslationKey | string): string => {
         const parts = key.split('.');
         let result: unknown = translations[language];
 
