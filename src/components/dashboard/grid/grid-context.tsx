@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
     GridBlock,
@@ -51,6 +51,7 @@ interface GridContextType {
     canUndo: boolean;
     canRedo: boolean;
     saveCheckpoint: () => void;
+    resetLayout: () => void;
 }
 
 const GridContext = createContext<GridContextType | undefined>(undefined);
@@ -94,6 +95,22 @@ export function GridProvider({
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
+
+    // Sync state with props when data loads
+    useEffect(() => {
+        if (initialBlocks.length > 0) {
+            setBlocks(initialBlocks);
+        }
+    }, [initialBlocks]);
+
+    useEffect(() => {
+        if (initialLayout.desktop.length > 0 || initialLayout.mobile.length > 0) {
+            setLayouts({
+                desktop: initialLayout.desktop,
+                mobile: initialLayout.mobile
+            });
+        }
+    }, [initialLayout]);
 
     // History State
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -228,7 +245,7 @@ export function GridProvider({
                 device // Optionally save the last viewed device
             };
 
-            const res = await fetch('/api/layout/save', { // Adjust endpoint as needed
+            const res = await fetch('/api/layout', { // Corrected endpoint
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -246,6 +263,13 @@ export function GridProvider({
             setIsSaving(false);
         }
     }, [blocks, layouts, settings, device]);
+    const resetLayout = useCallback(() => {
+        saveCheckpoint();
+        setBlocks([]);
+        setLayouts({ desktop: [], mobile: [] });
+        setSelectedBlockId(null);
+        setIsDirty(true);
+    }, [saveCheckpoint]);
 
     return (
         <GridContext.Provider value={{
@@ -265,6 +289,7 @@ export function GridProvider({
             updateBlock,
             removeBlock,
             saveLayout,
+            resetLayout,
             isSaving,
             isDirty,
             setIsDirty,

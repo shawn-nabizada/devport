@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
-import { useGridContext, GridProvider } from './grid-context';
+import { useGridContext } from './grid-context';
 import { RibbonToolbar } from './ribbon-toolbar';
 import { GridBlockWrapper } from './grid-block-wrapper';
 import { cn } from '@/lib/utils';
@@ -109,7 +109,7 @@ const GridLines = ({
     );
 };
 
-function GridEditorContent() {
+export function GridEditor() {
     const {
         editMode,
         device,
@@ -137,6 +137,9 @@ function GridEditorContent() {
     useEffect(() => {
         if (!containerRef.current) return;
 
+        // Immediate measurement to handle device switch instantly
+        setWidth(containerRef.current.offsetWidth);
+
         const resizeObserver = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 setWidth(entry.contentRect.width);
@@ -148,7 +151,7 @@ function GridEditorContent() {
         return () => {
             resizeObserver.disconnect();
         };
-    }, []);
+    }, [mounted, device]);
 
     // Local interface for RGL layout items to ensure type safety
     interface RGLLayoutItem {
@@ -224,9 +227,16 @@ function GridEditorContent() {
     if (!mounted) return null;
 
     // Calculate dynamic grid height to ensure lines cover all blocks
-    const maxGridY = rglLayouts.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+    const maxGridY = rglLayouts.reduce((max, item) => {
+        if (item.y === Infinity) return max;
+        return Math.max(max, item.y + item.h);
+    }, 0);
     // Approximate height in pixels: (rows * rowHeight) + (rows * margin) + padding
     const contentHeight = maxGridY * (rowHeight + 16) + 200; // + buffer
+
+    // Dynamic margins/padding based on device
+    const margin: [number, number] = device === 'mobile' ? [10, 10] : [16, 16];
+    const containerPadding: [number, number] = device === 'mobile' ? [10, 10] : [16, 16];
 
     return (
         <div className="flex flex-col h-screen bg-background">
@@ -236,7 +246,7 @@ function GridEditorContent() {
                 {/* Main Canvas */}
                 <div className="flex-1 bg-muted/10 overflow-auto relative custom-scrollbar">
                     <div
-                        className="min-h-full transition-all duration-300 relative bg-background shadow-sm"
+                        className="min-h-full relative bg-background shadow-sm overflow-hidden"
                         style={getContainerStyle()}
                         ref={containerRef}
                         onClick={() => setSelectedBlockId(null)} // Click background to deselect
@@ -247,6 +257,8 @@ function GridEditorContent() {
                                 width={width}
                                 cols={cols}
                                 rowHeight={rowHeight}
+                                margin={margin}
+                                containerPadding={containerPadding}
                                 minHeight={Math.max(contentHeight, 1000)} // Ensure at least screen height
                             />
                         )}
@@ -259,15 +271,13 @@ function GridEditorContent() {
                                 cols: { lg: cols },
                                 rowHeight: rowHeight,
                                 width: width,
-                                margin: [16, 16],
-                                containerPadding: [16, 16],
+                                margin: margin,
+                                containerPadding: containerPadding,
                                 isDraggable: editMode,
                                 isResizable: editMode,
                                 resizeHandle: <ResizeHandle />,
                                 onLayoutChange: handleLayoutChange,
-                                onDragStart: handleDragStart,
                                 onResizeStart: handleResizeStart,
-                                draggableCancel: ".no-drag",
                                 compactType: null,
                                 preventCollision: false
                             } as unknown as React.ComponentProps<typeof ResponsiveGridLayout> & { isDraggable: boolean, isResizable: boolean })}
@@ -282,13 +292,12 @@ function GridEditorContent() {
                                             isSelected={selectedBlockId === block._id.toString()}
                                             isEditMode={editMode}
                                             onRemove={removeBlock}
-                                            onClick={() => {
-                                                // Prevent bubbling to background
-                                                // We handle this in wrapper's onClick prop if needed, 
-                                                // but wrapper onClick needs to call setSelectedBlockId
-                                            }}
-                                            onMouseDown={(e) => {
+                                            onClick={(e) => {
                                                 e.stopPropagation();
+                                                // Wrapper clicked, prevent deselection
+                                            }}
+                                            onMouseDown={() => {
+                                                // Allow bubbling to RGL for drag
                                                 setSelectedBlockId(block._id.toString());
                                             }}
                                         />
@@ -300,13 +309,5 @@ function GridEditorContent() {
                 </div>
             </div>
         </div >
-    );
-}
-
-export function GridEditor() {
-    return (
-        <GridProvider>
-            <GridEditorContent />
-        </GridProvider>
     );
 }

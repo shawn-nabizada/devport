@@ -60,11 +60,11 @@ export function PublicGridRenderer({
 
     // Map device layouts to RGL breakpoints
     const rglLayouts = {
-        lg: (layouts.find(l => l.device === 'desktop')?.layout || []) as unknown as RGLLayoutItem[],
-        md: (layouts.find(l => l.device === 'desktop')?.layout || []) as unknown as RGLLayoutItem[],
-        sm: (layouts.find(l => l.device === 'mobile')?.layout || []) as unknown as RGLLayoutItem[],
-        xs: (layouts.find(l => l.device === 'mobile')?.layout || []) as unknown as RGLLayoutItem[],
-        xxs: (layouts.find(l => l.device === 'mobile')?.layout || []) as unknown as RGLLayoutItem[],
+        lg: (layouts.find(l => l.device === 'desktop')?.layout || []).map(l => ({ ...l, static: true })) as unknown as RGLLayoutItem[],
+        md: (layouts.find(l => l.device === 'desktop')?.layout || []).map(l => ({ ...l, static: true })) as unknown as RGLLayoutItem[],
+        sm: (layouts.find(l => l.device === 'mobile')?.layout || []).map(l => ({ ...l, static: true })) as unknown as RGLLayoutItem[],
+        xs: (layouts.find(l => l.device === 'mobile')?.layout || []).map(l => ({ ...l, static: true })) as unknown as RGLLayoutItem[],
+        xxs: (layouts.find(l => l.device === 'mobile')?.layout || []).map(l => ({ ...l, static: true })) as unknown as RGLLayoutItem[],
     } as unknown as { [key: string]: RGLLayoutItem[] };
 
     return (

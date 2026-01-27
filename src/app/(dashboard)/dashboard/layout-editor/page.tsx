@@ -26,8 +26,8 @@ export default function LayoutEditorPage() {
         async function loadData() {
             try {
                 const [layoutRes, blocksRes] = await Promise.all([
-                    fetch('/api/layout?device=desktop'),
-                    fetch('/api/blocks'),
+                    fetch('/api/layout?device=desktop', { cache: 'no-store' }),
+                    fetch('/api/blocks', { cache: 'no-store' }),
                 ]);
 
                 if (layoutRes.ok) {

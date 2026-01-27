@@ -38,6 +38,7 @@ export const fr: Translations = {
         optional: 'optionnel',
         english: 'Anglais',
         french: 'Français',
+        reset: 'Réinitialiser',
     },
     nav: {
         home: 'Accueil',
@@ -163,6 +164,8 @@ export const fr: Translations = {
             uploadFailed: "Échec du téléversement",
             textPlaceholder: "Appuyez sur Entrée pour enregistrer, Maj+Entrée pour nouvelle ligne",
             clickToEdit: "Cliquez pour modifier",
+            resetTitle: 'Réinitialiser la mise en page ?',
+            resetDescription: 'Cela supprimera tous les blocs de votre portfolio. Cette action peut être annulée en utilisant le bouton Annuler.',
         },
         themes: {
             title: 'Thèmes',

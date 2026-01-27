@@ -31,7 +31,7 @@ interface GridBlockWrapperProps extends React.HTMLAttributes<HTMLDivElement> {
     isSelected: boolean;
     isEditMode: boolean;
     onRemove: (id: string) => void;
-    onClick: () => void;
+    onClick?: React.MouseEventHandler;
     // Props passed by react-grid-layout
     style?: React.CSSProperties;
     className?: string;
@@ -103,9 +103,10 @@ export const GridBlockWrapper = forwardRef<HTMLDivElement, GridBlockWrapperProps
             {...props}
         >
             <div className={cn(
-                "h-full w-full overflow-hidden rounded-lg bg-card border transition-all duration-200",
+                "h-full w-full overflow-hidden rounded-lg bg-card border transition-all duration-200 select-none",
                 isSelected && isEditMode ? "border-primary ring-2 ring-primary/20 shadow-lg" : "border-border hover:border-primary/50"
             )}>
+
                 {/* Remove Button - Only visible in edit mode */}
                 {isEditMode && (
                     <button

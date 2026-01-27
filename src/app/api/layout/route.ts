@@ -51,6 +51,11 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/layout - Save layout configuration
  */
+const DEFAULT_LAYOUT_CONFIG = {
+    desktop: { cols: 12, rowHeight: 80 },
+    mobile: { cols: 4, rowHeight: 60 },
+} as const;
+
 export async function POST(request: NextRequest) {
     try {
         const session = await auth();
@@ -59,49 +64,83 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { device, layout, enabled, cols, rowHeight } = body;
-
-        if (!device || !['desktop', 'mobile'].includes(device)) {
-            return NextResponse.json({ error: 'Invalid device type' }, { status: 400 });
-        }
-
-        if (!Array.isArray(layout)) {
-            return NextResponse.json({ error: 'Layout must be an array' }, { status: 400 });
-        }
+        const { blocks, layouts, settings, device } = body;
 
         const client = await clientPromise;
         const db = client.db();
+        const userId = new ObjectId(session.user.id);
 
-        // Use provided values or fall back to defaults effectively
-        // However, we only want to update them if provided, or default on insert.
-        // But for simplicity in this logic, the frontend will always send current values.
-        // We'll enforce some sane defaults if missing so we don't break things.
+        // 1. Save Blocks - Delete removed blocks first
+        if (Array.isArray(blocks)) {
+            // Get IDs of blocks being saved
+            const blockIdsToKeep = blocks
+                .filter((b: any) => b._id)
+                .map((b: any) => new ObjectId(b._id));
 
-        const newCols = typeof cols === 'number' ? cols : DEFAULT_CONFIG[device as DeviceType].cols;
-        const newRowHeight = typeof rowHeight === 'number' ? rowHeight : DEFAULT_CONFIG[device as DeviceType].rowHeight;
+            // Delete blocks not in the new list
+            await db.collection('blocks').deleteMany({
+                userId,
+                _id: { $nin: blockIdsToKeep }
+            });
 
-        const result = await db.collection<PortfolioLayout>('layouts').updateOne(
-            {
-                userId: new ObjectId(session.user.id),
-                device,
-            },
-            {
-                $set: {
-                    layout,
-                    cols: newCols,
-                    rowHeight: newRowHeight,
-                    enabled: enabled ?? true,
-                    updatedAt: new Date(),
-                },
-                $setOnInsert: {
-                    userId: new ObjectId(session.user.id),
-                    device,
-                },
-            },
-            { upsert: true }
-        );
+            // Update/Insert remaining blocks
+            const blockOperations = blocks.map((block: any) => ({
+                updateOne: {
+                    filter: { _id: new ObjectId(block._id), userId },
+                    update: {
+                        $set: {
+                            content: block.content,
+                            type: block.type,
+                            updatedAt: new Date()
+                        },
+                        $setOnInsert: {
+                            userId,
+                            createdAt: block.createdAt || new Date()
+                        }
+                    },
+                    upsert: true
+                }
+            }));
 
-        return NextResponse.json({ success: true, modifiedCount: result.modifiedCount });
+            if (blockOperations.length > 0) {
+                await db.collection('blocks').bulkWrite(blockOperations);
+            }
+        }
+
+        // 2. Save Layouts for each device
+        if (layouts && typeof layouts === 'object') {
+            const deviceTypes = ['desktop', 'mobile'] as const;
+
+            for (const d of deviceTypes) {
+                const deviceLayout = layouts[d];
+                const deviceSettings = settings?.[d] || DEFAULT_LAYOUT_CONFIG[d];
+
+                if (Array.isArray(deviceLayout)) {
+                    await db.collection('layouts').updateOne(
+                        {
+                            userId: userId,
+                            device: d,
+                        },
+                        {
+                            $set: {
+                                layout: deviceLayout,
+                                cols: deviceSettings.cols,
+                                rowHeight: deviceSettings.rowHeight,
+                                enabled: true,
+                                updatedAt: new Date(),
+                            },
+                            $setOnInsert: {
+                                userId: userId,
+                                device: d,
+                            },
+                        },
+                        { upsert: true }
+                    );
+                }
+            }
+        }
+
+        return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error saving layout:', error);
         return NextResponse.json({ error: 'Failed to save layout' }, { status: 500 });

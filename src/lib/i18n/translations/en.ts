@@ -38,6 +38,7 @@ export const en: Translations = {
         optional: 'optional',
         english: 'English',
         french: 'French',
+        reset: 'Reset',
     },
     nav: {
         home: 'Home',
@@ -163,6 +164,8 @@ export const en: Translations = {
             uploadFailed: 'Upload failed',
             textPlaceholder: 'Press Enter to save, Shift+Enter for new line',
             clickToEdit: 'Click to edit',
+            resetTitle: 'Reset Layout?',
+            resetDescription: 'This will remove all blocks from your portfolio. This action can be undone using the Undo button.',
         },
         themes: {
             title: 'Themes',

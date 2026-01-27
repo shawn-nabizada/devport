@@ -43,8 +43,20 @@ import {
     ChevronUp,
     Undo,
     Redo,
+    RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { BlockType, GridBlock, BlockContent, TextBlockContent } from '@/lib/db/layout-types';
 
 // Tab types
@@ -178,7 +190,8 @@ export function RibbonToolbar() {
         saveCheckpoint,
         cols,
         rowHeight,
-        updateGridSettings,
+        range,
+        resetLayout,
     } = useGridContext();
     const { t, language } = useTranslation();
     const { resolvedTheme } = useTheme();
@@ -466,8 +479,32 @@ export function RibbonToolbar() {
                     </button>
                 </div>
 
-                {/* Right: Edit/Preview, Save */}
+                {/* Right: Reset, Edit/Preview, Save */}
                 <div className="flex items-center gap-3 flex-1 justify-end">
+                    {/* Reset Button */}
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                {t('common.reset') === 'common.reset' ? 'Reset' : t('common.reset')}
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>{t('dashboard.layoutEditor.resetTitle') === 'dashboard.layoutEditor.resetTitle' ? 'Reset Layout?' : t('dashboard.layoutEditor.resetTitle')}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    {t('dashboard.layoutEditor.resetDescription') === 'dashboard.layoutEditor.resetDescription' ? 'This will remove all blocks from your portfolio. This action can be undone using the Undo button.' : t('dashboard.layoutEditor.resetDescription')}
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>{t('common.cancel') === 'common.cancel' ? 'Cancel' : t('common.cancel')}</AlertDialogCancel>
+                                <AlertDialogAction onClick={resetLayout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    {t('common.reset') === 'common.reset' ? 'Reset' : t('common.reset')}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
                     {/* Edit/Preview Toggle */}
                     <button
                         onClick={() => setEditMode(!editMode)}
