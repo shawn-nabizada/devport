@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         const { themeId, customColors, customTypography, customSpacing } = body;
 
         // Validate theme ID
-        const validThemeIds: ThemeId[] = ['tech', 'amber', 'latte', 'retro', 'sodapop', 'custom'];
+        const validThemeIds: ThemeId[] = ['tech', 'amber', 'latte', 'retro', 'sodapop', 'bubblegum', 'custom'];
         if (!themeId || !validThemeIds.includes(themeId)) {
             return NextResponse.json({ error: 'Invalid theme ID' }, { status: 400 });
         }

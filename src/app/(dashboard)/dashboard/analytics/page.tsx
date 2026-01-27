@@ -203,9 +203,9 @@ export default function AnalyticsPage() {
 
             <Tabs defaultValue="overview" className="space-y-6">
                 <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="overview">{t('analytics.overview')}</TabsTrigger>
                     <TabsTrigger value="heatmap" className="flex items-center gap-2">
-                        <Activity className="h-4 w-4" /> Heatmap
+                        <Activity className="h-4 w-4" /> {t('analytics.heatmap')}
                     </TabsTrigger>
                 </TabsList>
 
@@ -355,8 +355,8 @@ export default function AnalyticsPage() {
                 <TabsContent value="heatmap">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Click Heatmap</CardTitle>
-                            <CardDescription>Visualizing user interactions on your Desktop layout.</CardDescription>
+                            <CardTitle>{t('analytics.heatmap')}</CardTitle>
+                            <CardDescription>{t('analytics.heatmapDescription')}</CardDescription>
                         </CardHeader>
                         <CardContent className="min-h-[500px]">
                             {loadingHeatmap ? (

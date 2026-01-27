@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { useTranslation } from '@/lib/i18n';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface User {
     _id: string;
@@ -26,6 +27,8 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<{ id: string; username: string } | null>(null);
 
     useEffect(() => {
         fetchUsers();
@@ -45,23 +48,26 @@ export default function AdminUsersPage() {
         }
     };
 
-    const handleDelete = async (userId: string, username: string) => {
-        // We use replace logic for placeholders manually or a helper if available, assumes t interpolates? 
-        // Our simple useTranslation might not support interpolation fully in one go if strict string.
-        // Let's assume t returns string. If we need simple replacement:
-        const confirmMsg = t('admin.deleteConfirm').replace('{username}', username);
-        if (!confirm(confirmMsg)) return;
+    const openDeleteDialog = (userId: string, username: string) => {
+        setUserToDelete({ id: userId, username });
+        setDeleteDialogOpen(true);
+    };
 
+    const handleDelete = async () => {
+        if (!userToDelete) return;
         try {
-            const res = await fetch(`/api/admin/users?userId=${userId}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/users?userId=${userToDelete.id}`, { method: 'DELETE' });
             if (res.ok) {
                 toast.success(t('admin.userDeleted'));
-                setUsers(users.filter(u => u._id !== userId));
+                setUsers(users.filter(u => u._id !== userToDelete.id));
             } else {
                 toast.error(t('admin.deleteFailed'));
             }
         } catch {
             toast.error(t('admin.deleteFailed'));
+        } finally {
+            setDeleteDialogOpen(false);
+            setUserToDelete(null);
         }
     };
 
@@ -110,7 +116,7 @@ export default function AdminUsersPage() {
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
-                                                    {user.image ? <Image unoptimized src={user.image} alt={user.name || 'User avatar'} width={32} height={32} className="w-full h-full rounded-full object-cover" /> : user.name?.[0] || 'U'}
+                                                    {user.image ? <Image src={user.image} alt={user.name || 'User avatar'} width={32} height={32} className="w-full h-full rounded-full object-cover" /> : user.name?.[0] || 'U'}
                                                 </div>
                                                 <div>
                                                     <div className="font-medium">{user.name || 'No Name'}</div>
@@ -140,7 +146,7 @@ export default function AdminUsersPage() {
                                                     </Link>
                                                 </Button>
                                                 {user.role !== 'admin' && (
-                                                    <Button size="icon" variant="ghost" onClick={() => handleDelete(user._id, user.username)} className="text-red-500 hover:text-red-700 hover:bg-red-50" title={t('admin.deleteUser')}>
+                                                    <Button size="icon" variant="ghost" onClick={() => openDeleteDialog(user._id, user.username)} className="text-red-500 hover:text-red-700 hover:bg-red-50" title={t('admin.deleteUser')}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 )}
@@ -153,6 +159,17 @@ export default function AdminUsersPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title={t('admin.deleteUserTitle') || 'Delete User'}
+                description={userToDelete ? t('admin.deleteConfirm').replace('{username}', userToDelete.username) : ''}
+                confirmLabel={t('common.delete') || 'Delete'}
+                cancelLabel={t('common.cancel') || 'Cancel'}
+                variant="destructive"
+                onConfirm={handleDelete}
+            />
         </div>
     );
 }

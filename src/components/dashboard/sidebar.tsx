@@ -21,7 +21,6 @@ import {
     BarChart3,
     ChevronLeft,
     ChevronRight,
-    Palette,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -44,7 +43,6 @@ const navGroups = [
         title: 'nav.builder',
         items: [
             { href: '/dashboard/layout-editor', icon: LayoutGrid, labelKey: 'dashboard.layoutEditor.title' },
-            { href: '/dashboard/themes', icon: Palette, labelKey: 'dashboard.themes.title' },
         ],
     },
     {

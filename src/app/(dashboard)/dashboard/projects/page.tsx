@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,9 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, ExternalLink, Github } from 'lucide-react';
 
 interface Project {
@@ -40,6 +43,8 @@ export default function ProjectsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         titleEn: '',
         titleFr: '',
@@ -52,23 +57,23 @@ export default function ProjectsPage() {
         featured: false,
     });
 
-    useEffect(() => {
-        fetchProjects();
-    }, []);
-
-    async function fetchProjects() {
+    const fetchProjects = useCallback(async () => {
         try {
             const res = await fetch('/api/projects');
             if (res.ok) {
                 const data = await res.json();
                 setProjects(data);
             }
-        } catch (error) {
-            console.error('Error fetching projects:', error);
+        } catch {
+            toast.error(t('common.error'));
         } finally {
             setIsLoading(false);
         }
-    }
+    }, [t]);
+
+    useEffect(() => {
+        fetchProjects();
+    }, [fetchProjects]);
 
     function openCreateDialog() {
         setEditingProject(null);
@@ -133,23 +138,59 @@ export default function ProjectsPage() {
             }
             setIsDialogOpen(false);
             fetchProjects();
-        } catch (error) {
-            console.error('Error saving project:', error);
+        } catch {
+            toast.error(t('common.error'));
         }
     }
 
-    async function handleDelete(id: string) {
-        if (!confirm(t('projects.deleteConfirm'))) return;
+    function openDeleteDialog(id: string) {
+        setProjectToDelete(id);
+        setDeleteDialogOpen(true);
+    }
+
+    async function handleDelete() {
+        if (!projectToDelete) return;
         try {
-            await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+            await fetch(`/api/projects/${projectToDelete}`, { method: 'DELETE' });
+            toast.success(t('projects.deleted') || 'Project deleted');
             fetchProjects();
-        } catch (error) {
-            console.error('Error deleting project:', error);
+        } catch {
+            toast.error(t('common.error'));
+        } finally {
+            setDeleteDialogOpen(false);
+            setProjectToDelete(null);
         }
     }
 
     if (isLoading) {
-        return <div className="text-muted-foreground">{t('common.loading')}</div>;
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <Skeleton className="h-9 w-40 mb-2" />
+                        <Skeleton className="h-5 w-64" />
+                    </div>
+                    <Skeleton className="h-10 w-32" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {[1, 2, 3, 4].map((i) => (
+                        <Card key={i}>
+                            <CardHeader>
+                                <Skeleton className="h-6 w-48 mb-2" />
+                                <Skeleton className="h-4 w-full" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex flex-wrap gap-1">
+                                    <Skeleton className="h-5 w-16" />
+                                    <Skeleton className="h-5 w-20" />
+                                    <Skeleton className="h-5 w-14" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -329,7 +370,7 @@ export default function ProjectsPage() {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            onClick={() => handleDelete(project._id)}
+                                            onClick={() => openDeleteDialog(project._id)}
                                         >
                                             <Trash2 className="h-4 w-4 text-destructive" />
                                         </Button>
@@ -376,6 +417,17 @@ export default function ProjectsPage() {
                     ))}
                 </div>
             )}
+
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title={t('projects.deleteTitle') || 'Delete Project'}
+                description={t('projects.deleteConfirm') || 'Are you sure you want to delete this project? This action cannot be undone.'}
+                confirmLabel={t('common.delete') || 'Delete'}
+                cancelLabel={t('common.cancel') || 'Cancel'}
+                variant="destructive"
+                onConfirm={handleDelete}
+            />
         </div>
     );
 }

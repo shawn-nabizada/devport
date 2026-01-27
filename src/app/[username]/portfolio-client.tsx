@@ -1,20 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useTheme } from 'next-themes';
 import { getThemeById, applyThemeToElement, ThemeId } from '@/lib/db/theme-types';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    MapPin, Mail, Linkedin, Github, Twitter, Globe, ExternalLink,
-    Calendar, GraduationCap, Briefcase, Heart, ChevronRight, Send, Download, Quote
+    MapPin, Linkedin, Github, Twitter, Globe, ExternalLink,
+    Calendar, GraduationCap, Briefcase, Heart, ChevronRight, Download
 } from 'lucide-react';
 import { PublicGridRenderer } from '@/components/dashboard/grid/public-grid-renderer';
+import { TestimonialsCarousel } from '@/components/portfolio/testimonials-carousel';
+import { ContactSection } from '@/components/portfolio/contact-section';
 import type { LayoutItem, GridBlock, DeviceType } from '@/lib/db/layout-types';
 
 interface Portfolio {
@@ -50,9 +51,7 @@ interface Portfolio {
 export function PortfolioClientView({ portfolio }: { portfolio: Portfolio }) {
     const { t, language } = useTranslation();
     const { resolvedTheme } = useTheme();
-    const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
-    const [sending, setSending] = useState(false);
-    const [sent, setSent] = useState(false);
+    // Removed local contact state as it's now in ContactSection
     const portfolioRef = useRef<HTMLDivElement>(null);
     const username = portfolio.user.username;
 
@@ -75,21 +74,7 @@ export function PortfolioClientView({ portfolio }: { portfolio: Portfolio }) {
         }
     }, [portfolio?.themeId, portfolio?.customColors, resolvedTheme]);
 
-    async function handleContact(e: React.FormEvent) {
-        e.preventDefault();
-        setSending(true);
-        try {
-            const res = await fetch('/api/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, senderName: contactForm.name, senderEmail: contactForm.email, subject: contactForm.subject, message: contactForm.message }),
-            });
-            if (res.ok) {
-                setSent(true);
-                setContactForm({ name: '', email: '', subject: '', message: '' });
-            }
-        } finally { setSending(false); }
-    }
+    // Removed handleContact function as it's now in ContactSection
 
     const formatDate = (date: string) => new Date(date).toLocaleDateString(language === 'fr' ? 'fr-CA' : 'en-US', { year: 'numeric', month: 'short' });
 
@@ -101,7 +86,7 @@ export function PortfolioClientView({ portfolio }: { portfolio: Portfolio }) {
             <section className="py-16 border-b">
                 <div className="container mx-auto px-4 text-center">
                     <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6 text-4xl font-bold text-primary">
-                        {user.image ? <Image src={user.image} alt={user.name} width={96} height={96} className="w-full h-full rounded-full object-cover" unoptimized /> : (user.name?.charAt(0) || 'U')}
+                        {user.image ? <Image src={user.image} alt={user.name} width={96} height={96} className="w-full h-full rounded-full object-cover" /> : (user.name?.charAt(0) || 'U')}
                     </div>
                     <h1 className="text-4xl font-bold mb-2">{user.name}</h1>
                     <p className="text-xl text-muted-foreground mb-4">{profile.headline[language] || profile.headline.en}</p>
@@ -221,54 +206,26 @@ export function PortfolioClientView({ portfolio }: { portfolio: Portfolio }) {
                             </div>
                         </section>
                     )}
-
-                    {/* Testimonials */}
-                    {testimonials.length > 0 && (
-                        <section>
-                            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Quote className="h-6 w-6 text-primary" />{t('nav.testimonials')}</h2>
-                            <div className="grid gap-6 md:grid-cols-2">
-                                {testimonials.map(testimonial => (
-                                    <Card key={testimonial._id}>
-                                        <CardContent className="pt-6">
-                                            <blockquote className="text-muted-foreground italic">&ldquo;{testimonial.content}&rdquo;</blockquote>
-                                            <div className="mt-4 font-medium">{testimonial.authorName}</div>
-                                            {(testimonial.authorTitle || testimonial.authorCompany) && (
-                                                <div className="text-sm text-muted-foreground">{testimonial.authorTitle}{testimonial.authorTitle && testimonial.authorCompany ? ' at ' : ''}{testimonial.authorCompany}</div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    {/* Contact Form */}
-                    <section id="contact">
-                        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Mail className="h-6 w-6 text-primary" />{t('nav.contact')}</h2>
-                        {sent ? (
-                            <Card><CardContent className="py-12 text-center"><p className="text-green-600 font-medium">✓ {t('contact.success')}</p></CardContent></Card>
-                        ) : (
-                            <Card>
-                                <CardContent className="pt-6">
-                                    <form onSubmit={handleContact} className="space-y-4 max-w-lg">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2"><Label>{t('contact.name')}</Label><Input value={contactForm.name} onChange={e => setContactForm({ ...contactForm, name: e.target.value })} required /></div>
-                                            <div className="space-y-2"><Label>{t('contact.email')}</Label><Input type="email" value={contactForm.email} onChange={e => setContactForm({ ...contactForm, email: e.target.value })} required /></div>
-                                        </div>
-                                        <div className="space-y-2"><Label>{t('contact.subject')}</Label><Input value={contactForm.subject} onChange={e => setContactForm({ ...contactForm, subject: e.target.value })} /></div>
-                                        <div className="space-y-2"><Label>{t('contact.message')}</Label><textarea className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" rows={4} value={contactForm.message} onChange={e => setContactForm({ ...contactForm, message: e.target.value })} required /></div>
-                                        <Button type="submit" disabled={sending}><Send className="mr-2 h-4 w-4" />{sending ? t('common.sending') : t('contact.send')}</Button>
-                                    </form>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </section>
                 </div>
             )}
 
+            {/* Global Sections (Always Visible) */}
+
+            {/* Testimonials */}
+            {testimonials.length > 0 && (
+                <TestimonialsCarousel testimonials={testimonials} />
+            )}
+
+            {/* Contact Form */}
+            <ContactSection username={username} />
+
             {/* Footer */}
-            <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-                {t('portfolio.builtWith')} <Link href="/" className="font-medium text-foreground hover:underline">DevPort</Link>
+            <footer className="border-t py-8 text-center">
+                {/* Social Links */}
+
+                <p className="text-sm text-muted-foreground">
+                    {t('portfolio.builtWith')} <Link href="/" className="font-medium text-foreground hover:underline">DevPort</Link>
+                </p>
             </footer>
         </div>
     );

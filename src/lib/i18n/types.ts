@@ -53,6 +53,10 @@ export interface Translations {
         messages: string;
         explore: string;
         myPortfolio: string;
+        general: string;
+        builder: string;
+        content: string;
+        communication: string;
     };
     auth: {
         login: string;
@@ -110,6 +114,7 @@ export interface Translations {
         saveChanges: string;
         manageProfile: string;
         allSet: string;
+        allSetDescription: string;
         dataManagement: string;
         dataDescription: string;
         exportData: string;
@@ -135,6 +140,11 @@ export interface Translations {
             skills: string;
             social: string;
             video: string;
+            projects: string;
+            experience: string;
+            education: string;
+            hobbies: string;
+            resume: string;
             sans: string;
             serif: string;
             mono: string;
@@ -165,6 +175,9 @@ export interface Translations {
     analytics: {
         title: string;
         description: string;
+        overview: string;
+        heatmap: string;
+        heatmapDescription: string;
         pageViews: string;
         uniqueVisitors: string;
         resumeDownloads: string;
@@ -348,6 +361,14 @@ export interface Translations {
         uploadEnglishDescription: string;
         uploadFrenchDescription: string;
         deleteConfirm: string;
+        stats: {
+            totalDownloads: string;
+            thisWeek: string;
+            thisMonth: string;
+            byLanguage: string;
+            recentDownloads: string;
+            recentDescription: string;
+        };
     };
     home: {
         tagline: string;
@@ -402,6 +423,49 @@ export interface Translations {
             totalViews: string;
             testimonials: string;
             actionRequired: string;
+        };
+    };
+    errors: {
+        goBack: string;
+        goHome: string;
+        tryAgain: string;
+        needHelp: string;
+        contactSupport: string;
+        signInPrompt: string;
+        400: {
+            title: string;
+            description: string;
+            suggestion: string;
+        };
+        401: {
+            title: string;
+            description: string;
+            suggestion: string;
+        };
+        403: {
+            title: string;
+            description: string;
+            suggestion: string;
+        };
+        404: {
+            title: string;
+            description: string;
+            suggestion: string;
+        };
+        500: {
+            title: string;
+            description: string;
+            suggestion: string;
+        };
+        502: {
+            title: string;
+            description: string;
+            suggestion: string;
+        };
+        503: {
+            title: string;
+            description: string;
+            suggestion: string;
         };
     };
 }

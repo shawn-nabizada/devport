@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Save, Linkedin, Github, Twitter, Globe, Bell, Download, Trash2, AlertTriangle } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { toast } from 'sonner';
 
 
 interface Profile {
@@ -48,6 +50,7 @@ export default function SettingsPage() {
         emailOnTestimonial: true,
         emailDigest: 'weekly',
     });
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -97,10 +100,6 @@ export default function SettingsPage() {
     };
 
     const handleDeleteAccount = async () => {
-        // Simple confirmation prompt
-        const confirmation = window.prompt("To verify, type DELETE to confirm account deletion. This action cannot be undone.");
-        if (confirmation !== 'DELETE') return;
-
         try {
             const res = await fetch('/api/profile', {
                 method: 'DELETE',
@@ -108,11 +107,12 @@ export default function SettingsPage() {
             if (res.ok) {
                 await signOut({ callbackUrl: '/login' });
             } else {
-                alert('Failed to delete account');
+                toast.error(t('dashboard.deleteFailed') || 'Failed to delete account');
             }
-        } catch (error) {
-            console.error('Delete error:', error);
-            alert('An error occurred');
+        } catch {
+            toast.error(t('common.error') || 'An error occurred');
+        } finally {
+            setDeleteDialogOpen(false);
         }
     };
 
@@ -274,13 +274,26 @@ export default function SettingsPage() {
                             <h4 className="font-medium">{t('dashboard.deleteAccount') || 'Delete Account'}</h4>
                             <p className="text-sm text-muted-foreground">{t('dashboard.deleteDescription') || 'Permanently delete your account and all data.'}</p>
                         </div>
-                        <Button variant="destructive" onClick={handleDeleteAccount}>
+                        <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
                             <Trash2 className="mr-2 h-4 w-4" />
                             {t('dashboard.delete') || 'Delete'}
                         </Button>
                     </div>
                 </CardContent>
             </Card>
+
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title={t('dashboard.deleteAccount') || 'Delete Account'}
+                description={t('dashboard.deleteConfirmDescription') || 'This will permanently delete your account and all data. This action cannot be undone.'}
+                confirmLabel={t('dashboard.delete') || 'Delete'}
+                cancelLabel={t('common.cancel') || 'Cancel'}
+                variant="destructive"
+                onConfirm={handleDeleteAccount}
+                confirmationText="DELETE"
+                confirmationPlaceholder="Type DELETE to confirm"
+            />
         </div>
     );
 }

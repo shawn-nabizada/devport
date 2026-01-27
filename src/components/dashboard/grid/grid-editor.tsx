@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef, useEffect, forwardRef } from 'react';
 import GridLayout, { LayoutItem as RGLLayoutItem, Layout as RGLLayout, GridLayoutProps } from 'react-grid-layout';
 
 // Define our own EventCallback type that matches what GridLayout accepts
@@ -9,24 +9,140 @@ import { useGridContext } from './grid-context';
 import { BlockRenderer } from './block-renderer';
 import type { LayoutItem } from '@/lib/db/layout-types';
 import { Loader2 } from 'lucide-react';
-import 'react-grid-layout/css/styles.css';
+// import 'react-grid-layout/css/styles.css'; // Removed to prevent conflict with globals.css
 
 interface GridEditorProps {
     width?: number;
 }
 
-interface SnapGuide {
-    type: 'vertical' | 'horizontal';
-    position: number; // in pixels
+interface ExtendedLayoutItem extends RGLLayoutItem {
+    resizeHandles?: Array<'s' | 'w' | 'e' | 'n' | 'sw' | 'nw' | 'se' | 'ne'>;
 }
 
-export function GridEditor({ width = 1200 }: GridEditorProps) {
+// Custom Resize Handle
+const ResizeHandle = forwardRef<HTMLDivElement, { handleAxis?: string }>(
+    ({ handleAxis, ...props }, ref) => {
+        return (
+            <div
+                ref={ref}
+                data-axis={handleAxis}
+                className="custom-resize-handle absolute bottom-1 right-1 cursor-se-resize p-1 z-20 opacity-0 transition-opacity duration-200"
+                {...props}
+            >
+                {/* Visual handle: A small indicator */}
+                <div className="w-4 h-4 rounded-sm bg-background hover:bg-muted border border-border flex items-center justify-center shadow-sm">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="opacity-50 -rotate-45"
+                    >
+                        <polyline points="21 15 21 21 15 21" />
+                    </svg>
+                </div>
+            </div>
+        );
+    }
+);
+ResizeHandle.displayName = "ResizeHandle";
+
+// Background Grid Lines
+const GridLines = ({
+    width,
+    cols,
+    rowHeight,
+    margin = [16, 16],
+    containerPadding = [16, 16],
+}: {
+    width: number;
+    cols: number;
+    rowHeight: number;
+    margin?: [number, number];
+    containerPadding?: [number, number];
+}) => {
+    // Calculate column width exactly as React-Grid-Layout does
+    // width = colWidth * cols + margin * (cols - 1) + containerPadding * 2
+    // colWidth = (width - containerPadding * 2 - margin * (cols - 1)) / cols
+    const colWidth =
+        (width - containerPadding[0] * 2 - margin[0] * (cols - 1)) / cols;
+
+    // Render a sufficient number of rows. 
+    // In a real app, this might calculate based on the layout's max Y, but for a "background" feel, 
+    // we'll render enough to cover a reasonable viewport height (e.g. 20 rows ~ 3000px).
+    const rowCount = 30;
+    const gridHeight =
+        containerPadding[1] * 2 + rowCount * rowHeight + (rowCount - 1) * margin[1];
+
+    if (colWidth <= 0) return null;
+
+    return (
+        <div className="absolute inset-0 pointer-events-none z-0">
+            <svg
+                width={width}
+                height={gridHeight}
+                className="stroke-gray-300 dark:stroke-gray-700"
+            >
+                {/* Vertical Lines (Columns) */}
+                {Array.from({ length: cols + 1 }).map((_, i) => {
+                    // Lines are drawn at the gap centers
+                    // Shift lines by half margin to center the grid visually around items
+                    const x = containerPadding[0] + i * (colWidth + margin[0]) - (margin[0] / 2);
+
+                    // Don't draw lines outside for the very first and last if we want them flush,
+                    // but standard graph paper usually has lines.
+                    // The 'grid' project implementation:
+                    // x = containerPadding[0] + i * (colWidth + margin[0]) - (margin[0] / 2);
+
+                    if (i === 0 && margin[0] === 0) return null; // Skip first if no margin? Keeping consistent with source.
+
+                    return (
+                        <line
+                            key={`v-${i}`}
+                            x1={x}
+                            y1={0}
+                            x2={x}
+                            y2={gridHeight}
+                            strokeWidth={1}
+                            strokeDasharray="4 4"
+                        />
+                    );
+                })}
+
+                {/* Horizontal Lines (Rows) */}
+                {Array.from({ length: rowCount + 1 }).map((_, i) => {
+                    const y = containerPadding[1] + i * (rowHeight + margin[1]) - (margin[1] / 2);
+                    return (
+                        <line
+                            key={`h-${i}`}
+                            x1={0}
+                            y1={y}
+                            x2={width}
+                            y2={y}
+                            strokeWidth={1}
+                            strokeDasharray="4 4"
+                        />
+                    );
+                })}
+            </svg>
+        </div>
+    );
+};
+
+export function GridEditor({ width: initialWidth = 1200 }: GridEditorProps) {
     const {
         layout,
         setLayout,
         blocks,
         editMode,
         device,
+        cols,         // Get from context
+        rowHeight,    // Get from context
         selectedBlockId,
         isLoadingDevice,
         undo,
@@ -35,14 +151,31 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
         removeBlock,
     } = useGridContext();
 
+    const [width, setWidth] = useState(initialWidth);
+    const containerRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
-    const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
 
-    const cols = device === 'desktop' ? 12 : 4;
-    const rowHeight = device === 'desktop' ? 80 : 60;
-    const gridWidth = device === 'mobile' ? 400 : width;
-    const colWidth = (gridWidth - 32) / cols; // Account for container padding
-    const margin = 16;
+    // Resize Observer for robust width
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                setWidth(entry.contentRect.width);
+            }
+        });
+
+        resizeObserver.observe(containerRef.current);
+
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, []);
+
+    const selectedBlock = blocks.find(b => b._id.toString() === selectedBlockId);
+
+    const margin: [number, number] = [16, 16];
+    const containerPadding: [number, number] = [16, 16];
 
     const handleLayoutChange = useCallback((newLayout: RGLLayout) => {
         if (!editMode) return;
@@ -68,111 +201,27 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
         setIsDragging(true);
     }, [saveCheckpoint]);
 
-    const handleDrag: GridEventCallback = useCallback((
-        _layout: RGLLayout,
-        _oldItem: RGLLayoutItem | null,
-        newItem: RGLLayoutItem | null,
-    ) => {
-        if (!editMode || !newItem) return;
-
-        // Calculate snap guides based on other items
-        const guides: SnapGuide[] = [];
-
-        // Add column guides (vertical lines)
-        for (let i = 0; i <= cols; i++) {
-            const x = margin + i * colWidth;
-            guides.push({ type: 'vertical', position: x });
-        }
-
-        // Add alignment guides based on other blocks
-        layout.forEach((item) => {
-            if (item.i === newItem!.i) return;
-
-            // Left edge alignment
-            const leftEdge = margin + item.x * colWidth;
-            if (!guides.find(g => g.type === 'vertical' && Math.abs(g.position - leftEdge) < 2)) {
-                guides.push({ type: 'vertical', position: leftEdge });
-            }
-
-            // Right edge alignment
-            const rightEdge = margin + (item.x + item.w) * colWidth;
-            if (!guides.find(g => g.type === 'vertical' && Math.abs(g.position - rightEdge) < 2)) {
-                guides.push({ type: 'vertical', position: rightEdge });
-            }
-
-            // Top edge alignment
-            const topEdge = margin + item.y * (rowHeight + margin);
-            if (!guides.find(g => g.type === 'horizontal' && Math.abs(g.position - topEdge) < 2)) {
-                guides.push({ type: 'horizontal', position: topEdge });
-            }
-
-            // Bottom edge alignment
-            const bottomEdge = margin + (item.y + item.h) * (rowHeight + margin);
-            if (!guides.find(g => g.type === 'horizontal' && Math.abs(g.position - bottomEdge) < 2)) {
-                guides.push({ type: 'horizontal', position: bottomEdge });
-            }
-        });
-
-        // Only show guides near the dragged item
-        const draggedLeft = margin + newItem.x * colWidth;
-        const draggedRight = margin + (newItem.x + newItem.w) * colWidth;
-        const draggedTop = margin + newItem.y * (rowHeight + margin);
-        const draggedBottom = margin + (newItem.y + newItem.h) * (rowHeight + margin);
-
-        const snapThreshold = 20; // pixels
-
-        const activeGuides = guides.filter((guide) => {
-            if (guide.type === 'vertical') {
-                return (
-                    Math.abs(guide.position - draggedLeft) < snapThreshold ||
-                    Math.abs(guide.position - draggedRight) < snapThreshold
-                );
-            } else {
-                return (
-                    Math.abs(guide.position - draggedTop) < snapThreshold ||
-                    Math.abs(guide.position - draggedBottom) < snapThreshold
-                );
-            }
-        });
-
-        setSnapGuides(activeGuides);
-    }, [editMode, layout, cols, colWidth, rowHeight, margin]);
-
     const handleDragStop = useCallback(() => {
         setIsDragging(false);
-        setSnapGuides([]);
     }, []);
 
     // Keyboard Shortcuts
-    React.useEffect(() => {
+    useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!editMode) return;
-
-            // Undo: Ctrl+Z
-            if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
-                e.preventDefault();
-                undo();
-            }
-            // Redo: Ctrl+Shift+Z or Ctrl+Y
-            if ((e.ctrlKey && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
-                e.preventDefault();
-                redo();
-            }
-            // Delete
+            if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+            if ((e.ctrlKey && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) { e.preventDefault(); redo(); }
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (selectedBlockId) {
-                    // Ignore if typing in input
                     const tagName = (e.target as HTMLElement).tagName;
                     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) return;
                     if ((e.target as HTMLElement).isContentEditable) return;
-
                     e.preventDefault();
                     saveCheckpoint();
                     removeBlock(selectedBlockId);
                 }
             }
         };
-
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [editMode, undo, redo, saveCheckpoint, removeBlock, selectedBlockId]);
@@ -182,7 +231,8 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
         ...item,
         isDraggable: editMode,
         isResizable: editMode,
-    }));
+        // resizeHandles: ['sw', 'nw', 'se', 'ne'],
+    })) as ExtendedLayoutItem[];
 
     if (isLoadingDevice) {
         return (
@@ -197,87 +247,104 @@ export function GridEditor({ width = 1200 }: GridEditorProps) {
 
     return (
         <div
+            ref={containerRef}
             id="portfolio-preview"
-            className={`grid-editor relative rounded-lg ${device === 'mobile' ? 'max-w-[400px] mx-auto' : ''}`}
+            className={`grid-editor relative rounded-md overflow-hidden min-h-[600px] w-full ${device === 'mobile' ? 'max-w-[400px] mx-auto' : ''} [&_.react-grid-item:hover_.custom-resize-handle]:opacity-100`}
             style={{
                 backgroundColor: 'var(--background)',
                 color: 'var(--foreground)',
-                minHeight: '400px',
-                padding: '16px',
             }}
         >
-            {/* Snap Guides */}
-            {isDragging && editMode && snapGuides.map((guide, index) => (
-                <div
-                    key={`guide-${index}`}
-                    className={`absolute pointer-events-none z-50 ${guide.type === 'vertical'
-                        ? 'w-px h-full bg-blue-500/50'
-                        : 'h-px w-full bg-blue-500/50'
-                        }`}
-                    style={{
-                        left: guide.type === 'vertical' ? `${guide.position}px` : 0,
-                        top: guide.type === 'horizontal' ? `${guide.position}px` : 0,
-                    }}
+            {/* SVG Grid Lines */}
+            {editMode && (
+                <GridLines
+                    width={width}
+                    cols={cols}
+                    rowHeight={rowHeight}
+                    margin={margin}
+                    containerPadding={containerPadding}
                 />
-            ))}
+            )}
 
             <GridLayout
+                key={`${cols}-${rowHeight}`}
                 className="layout"
                 layout={gridLayout}
-                width={gridWidth}
-                gridConfig={{
-                    cols,
-                    rowHeight,
-                    margin: [margin, margin],
-                    containerPadding: [margin, margin],
-                }}
-                dragConfig={{ enabled: editMode }}
-                resizeConfig={{ enabled: editMode }}
+                width={width}
+                // @ts-expect-error - The types for react-grid-layout are missing cols
+                cols={cols}
+                rowHeight={rowHeight}
+                margin={margin}
+                containerPadding={containerPadding}
+                compactType={null} // No gravity, free movement
+                preventCollision={false} // Allow pushing
+                resizeHandle={<ResizeHandle />}
                 onLayoutChange={handleLayoutChange}
                 onDragStart={handleDragStart}
-                onDrag={handleDrag}
                 onDragStop={handleDragStop}
-                onResizeStart={handleDragStart}
-                onResize={handleDrag}
-                onResizeStop={handleDragStop}
+                isDraggable={editMode}
+                isResizable={editMode}
+                draggableCancel=".non-draggable"
             >
                 {blocks.map((block) => {
                     const isSelected = selectedBlockId === block._id.toString();
                     return (
                         <div
                             key={block._id.toString()}
-                            className={`bg-card rounded-lg shadow-md overflow-visible ${isSelected ? 'z-50' : 'z-0'
-                                } ${editMode ? 'border-2 border-dashed border-muted-foreground/40' : 'border border-border'
-                                }`}
-                            style={isSelected ? { zIndex: 50 } : undefined}
+                            className={`bg-card rounded-lg shadow-sm overflow-visible ${isSelected ? 'z-50 ring-2 ring-primary' : 'z-0'
+                                } ${editMode ? 'cursor-move' : ''}`}
+                            style={{
+                                zIndex: isSelected ? 50 : 1
+                            }}
+                            onClick={(e) => {
+                                // Prevent selecting passed-through checks if needed?
+                            }}
                         >
-                            <BlockRenderer block={block} />
+                            <div className="w-full h-full overflow-hidden rounded-lg">
+                                <BlockRenderer block={block} />
+                            </div>
                         </div>
                     );
                 })}
             </GridLayout>
 
             {blocks.length === 0 && (
-                <div className="text-center py-16 text-gray-500">
-                    <p className="text-lg mb-2">No blocks yet</p>
-                    <p className="text-sm">Add blocks from the sidebar to build your layout</p>
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center text-muted-foreground bg-background/80 p-6 rounded-lg backdrop-blur-sm border shadow-sm">
+                        <p className="text-lg font-medium mb-1">Canvas is empty</p>
+                        <p className="text-sm">Add blocks from the sidebar to start building</p>
+                    </div>
                 </div>
             )}
 
-            {/* Grid overlay for edit mode */}
-            {editMode && !isDragging && (
-                <div
-                    className="absolute inset-0 pointer-events-none opacity-10"
-                    style={{
-                        backgroundImage: `
-                            linear-gradient(to right, #3b82f6 1px, transparent 1px),
-                            linear-gradient(to bottom, #3b82f6 1px, transparent 1px)
-                        `,
-                        backgroundSize: `${colWidth}px ${rowHeight + margin}px`,
-                        backgroundPosition: `${margin}px ${margin}px`,
-                    }}
-                />
-            )}
+            {/* Debug Info */}
+            <div className="absolute top-2 right-2 bg-black/80 text-white p-4 rounded shadow-xl z-[100] font-mono text-xs pointer-events-none">
+                <div className="font-bold border-b border-white/20 mb-2 pb-1 text-green-400">DEBUG GRID</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <span className="text-gray-400">Width:</span> <span>{Math.round(width)}px</span>
+                    <span className="text-gray-400">Cols:</span> <span>{cols}</span>
+                    <span className="text-gray-400">RowH:</span> <span>{rowHeight}px</span>
+                    <span className="text-gray-400">Margin:</span> <span>{margin[0]}px</span>
+                </div>
+                {selectedBlock && (
+                    <div className="mt-2 pt-2 border-t border-white/20">
+                        <div className="font-bold text-yellow-400 mb-1">Selected: {selectedBlock.type}</div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            {(() => {
+                                const item = layout.find(l => l.i === selectedBlock._id.toString());
+                                return item ? (
+                                    <>
+                                        <span className="text-gray-400">x:</span> <span>{item.x}</span>
+                                        <span className="text-gray-400">y:</span> <span>{item.y}</span>
+                                        <span className="text-gray-400">w:</span> <span>{item.w}</span>
+                                        <span className="text-gray-400">h:</span> <span>{item.h}</span>
+                                    </>
+                                ) : <span className="col-span-2 text-red-400">Item not in layout!</span>;
+                            })()}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

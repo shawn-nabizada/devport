@@ -31,7 +31,7 @@ export default function ResumePage() {
     const [resumes, setResumes] = useState<Resume[]>([]);
     const [stats, setStats] = useState<DownloadStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [uploadingLang, setUploadingLang] = useState<'en' | 'fr' | null>(null);
+    const [, setUploadingLang] = useState<'en' | 'fr' | null>(null);
 
     useEffect(() => {
         fetchResumes();
@@ -103,7 +103,7 @@ export default function ResumePage() {
                                 </div>
                                 <div>
                                     <p className="text-2xl font-bold">{stats.total}</p>
-                                    <p className="text-sm text-muted-foreground">Total Downloads</p>
+                                    <p className="text-sm text-muted-foreground">{t('resume.stats.totalDownloads')}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -116,7 +116,7 @@ export default function ResumePage() {
                                 </div>
                                 <div>
                                     <p className="text-2xl font-bold">{stats.thisWeek}</p>
-                                    <p className="text-sm text-muted-foreground">This Week</p>
+                                    <p className="text-sm text-muted-foreground">{t('resume.stats.thisWeek')}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -129,7 +129,7 @@ export default function ResumePage() {
                                 </div>
                                 <div>
                                     <p className="text-2xl font-bold">{stats.thisMonth}</p>
-                                    <p className="text-sm text-muted-foreground">This Month</p>
+                                    <p className="text-sm text-muted-foreground">{t('resume.stats.thisMonth')}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -143,7 +143,7 @@ export default function ResumePage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <BarChart3 className="h-5 w-5" />
-                            Downloads by Language
+                            {t('resume.stats.byLanguage')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -165,8 +165,8 @@ export default function ResumePage() {
             {stats && stats.recent.length > 0 && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Recent Downloads</CardTitle>
-                        <CardDescription>Last 10 resume downloads</CardDescription>
+                        <CardTitle>{t('resume.stats.recentDownloads')}</CardTitle>
+                        <CardDescription>{t('resume.stats.recentDescription')}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-2">
@@ -220,18 +220,22 @@ export default function ResumePage() {
                                     </Button>
                                 </div>
                             </div>
-                        ) : uploadingLang === 'en' ? (
+                        ) : (
                             <UploadDropzone
                                 endpoint="resumeUploader"
+                                className="ut-label:text-primary ut-button:bg-primary ut-button:ut-readying:bg-primary/50 ut-button:ut-uploading:bg-primary/50"
+                                appearance={{
+                                    container: "border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors h-64",
+                                    uploadIcon: "text-primary/50",
+                                    label: "text-primary font-medium hover:text-primary/80 transition-colors",
+                                    allowedContent: "text-muted-foreground",
+                                    button: "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors w-48",
+                                }}
                                 onClientUploadComplete={(res) => {
                                     if (res[0]) saveResume('en', res[0].name, res[0].ufsUrl, res[0].size);
                                 }}
                                 onUploadError={(error) => alert(`Upload failed: ${error.message}`)}
                             />
-                        ) : (
-                            <Button onClick={() => setUploadingLang('en')} className="w-full">
-                                <Upload className="mr-2 h-4 w-4" />{t('resume.uploadEnglish')}
-                            </Button>
                         )}
                     </CardContent>
                 </Card>
@@ -267,18 +271,22 @@ export default function ResumePage() {
                                     </Button>
                                 </div>
                             </div>
-                        ) : uploadingLang === 'fr' ? (
+                        ) : (
                             <UploadDropzone
                                 endpoint="resumeUploader"
+                                className="ut-label:text-primary ut-button:bg-primary ut-button:ut-readying:bg-primary/50 ut-button:ut-uploading:bg-primary/50"
+                                appearance={{
+                                    container: "border-2 border-dashed border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors h-64",
+                                    uploadIcon: "text-primary/50",
+                                    label: "text-primary font-medium hover:text-primary/80 transition-colors",
+                                    allowedContent: "text-muted-foreground",
+                                    button: "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors w-32",
+                                }}
                                 onClientUploadComplete={(res) => {
                                     if (res[0]) saveResume('fr', res[0].name, res[0].ufsUrl, res[0].size);
                                 }}
                                 onUploadError={(error) => alert(`Upload failed: ${error.message}`)}
                             />
-                        ) : (
-                            <Button onClick={() => setUploadingLang('fr')} className="w-full">
-                                <Upload className="mr-2 h-4 w-4" />{t('resume.uploadFrench')}
-                            </Button>
                         )}
                     </CardContent>
                 </Card>

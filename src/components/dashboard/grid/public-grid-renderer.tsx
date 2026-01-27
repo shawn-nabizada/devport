@@ -38,17 +38,18 @@ function GridView({ width }: { width: number }) {
     return (
         <div className="portfolio-grid relative min-h-[400px]">
             <GridLayout
-                className="layout"
-                layout={layout as RGLLayoutItem[]}
-                width={gridWidth}
-                gridConfig={{
+                {...{
+                    className: "layout",
+                    layout: layout as RGLLayoutItem[],
+                    width: gridWidth,
+                    isDraggable: false,
+                    isResizable: false,
                     cols,
                     rowHeight,
                     margin: [margin, margin],
                     containerPadding: [margin, 0],
-                }}
-                dragConfig={{ enabled: false }}
-                resizeConfig={{ enabled: false }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                } as any}
             >
                 {blocks.map((block) => (
                     <div

@@ -36,9 +36,9 @@ export function ImageBlock({ data, blockId }: ImageBlockProps) {
 
     if (!data.imageUrl) {
         return (
-            <div className="h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 p-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-                <ImageIcon className="h-12 w-12 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500 mb-4">{t('dashboard.layoutEditor.noImageSet')}</p>
+            <div className="h-full flex flex-col items-center justify-center bg-card/50 p-4 border-2 border-dashed border-border rounded-lg">
+                <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground mb-4">{t('dashboard.layoutEditor.noImageSet')}</p>
                 {editMode && (
                     <div className="relative z-20">
                         <UploadButton
@@ -62,7 +62,7 @@ export function ImageBlock({ data, blockId }: ImageBlockProps) {
     }
 
     return (
-        <div className="h-full flex flex-col bg-white dark:bg-gray-800 relative group">
+        <div className="h-full flex flex-col bg-card/50 relative group">
             <div className="flex-1 relative min-h-[100px]">
                 <Image
                     src={data.imageUrl}
@@ -92,7 +92,7 @@ export function ImageBlock({ data, blockId }: ImageBlockProps) {
                 )}
             </div>
             {caption && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 p-2 text-center">
+                <p className="text-sm text-muted-foreground p-2 text-center">
                     {caption}
                 </p>
             )}

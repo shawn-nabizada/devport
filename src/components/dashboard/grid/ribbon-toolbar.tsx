@@ -25,8 +25,12 @@ import {
     Type,
     Image,
     BarChart3,
-    Share2,
     Video,
+    FolderKanban,
+    Briefcase,
+    GraduationCap,
+    Heart,
+    FileText,
     Bold,
     Italic,
     Underline,
@@ -51,8 +55,12 @@ const blockTypes: { type: BlockType; icon: React.ElementType; labelKey: string }
     { type: 'text', icon: Type, labelKey: 'text' },
     { type: 'image', icon: Image, labelKey: 'image' },
     { type: 'skills', icon: BarChart3, labelKey: 'skills' },
-    { type: 'social', icon: Share2, labelKey: 'social' },
     { type: 'video', icon: Video, labelKey: 'video' },
+    { type: 'projects', icon: FolderKanban, labelKey: 'projects' },
+    { type: 'experience', icon: Briefcase, labelKey: 'experience' },
+    { type: 'education', icon: GraduationCap, labelKey: 'education' },
+    { type: 'hobbies', icon: Heart, labelKey: 'hobbies' },
+    { type: 'resume', icon: FileText, labelKey: 'resume' },
 ];
 
 // Font sizes
@@ -92,14 +100,6 @@ function getDefaultContent(type: BlockType): BlockContent {
                     layout: 'vertical',
                 },
             };
-        case 'social':
-            return {
-                type: 'social',
-                data: {
-                    links: [],
-                    displayStyle: 'icons',
-                },
-            };
         case 'video':
             return {
                 type: 'video',
@@ -108,6 +108,51 @@ function getDefaultContent(type: BlockType): BlockContent {
                     url: '',
                     autoplay: false,
                     muted: true,
+                },
+            };
+        case 'projects':
+            return {
+                type: 'projects',
+                data: {
+                    projectIds: [],
+                    layout: 'grid',
+                    showDescription: true,
+                    showTechnologies: true,
+                    featuredOnly: false,
+
+                },
+            };
+        case 'experience':
+            return {
+                type: 'experience',
+                data: {
+                    experienceIds: [],
+                    layout: 'timeline',
+                    showDescription: true,
+                },
+            };
+        case 'education':
+            return {
+                type: 'education',
+                data: {
+                    educationIds: [],
+                    layout: 'timeline',
+                    showDescription: true,
+                },
+            };
+        case 'hobbies':
+            return {
+                type: 'hobbies',
+                data: {
+                    layout: 'tags',
+                },
+            };
+        case 'resume':
+            return {
+                type: 'resume',
+                data: {
+                    displayStyle: 'buttons',
+                    showBothLanguages: true,
                 },
             };
     }
@@ -131,6 +176,9 @@ export function RibbonToolbar() {
         canUndo,
         canRedo,
         saveCheckpoint,
+        cols,
+        rowHeight,
+        updateGridSettings,
     } = useGridContext();
     const { t, language } = useTranslation();
     const { resolvedTheme } = useTheme();
@@ -304,6 +352,20 @@ export function RibbonToolbar() {
         if (!selectedTheme) return;
 
         setCurrentThemeId(themeId);
+
+        // Reset custom colors state to the new theme's colors based on current mode
+        const mode = resolvedTheme === 'dark' ? 'dark' : 'light';
+        setCustomColors({
+            primary: selectedTheme.colors[mode].primary,
+            secondary: selectedTheme.colors[mode].secondary,
+            accent: selectedTheme.colors[mode].accent,
+            background: selectedTheme.colors[mode].background,
+            foreground: selectedTheme.colors[mode].foreground,
+            card: selectedTheme.colors[mode].card,
+            muted: selectedTheme.colors[mode].muted,
+            border: selectedTheme.colors[mode].border,
+        });
+
         const isDark = document.documentElement.classList.contains('dark');
         applyThemeToPreview(selectedTheme, isDark);
 
@@ -311,7 +373,7 @@ export function RibbonToolbar() {
             await fetch('/api/theme', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ themeId }),
+                body: JSON.stringify({ themeId }), // This clears customColors in DB
             });
             toast.success('Theme saved');
         } catch (error) {
@@ -444,100 +506,120 @@ export function RibbonToolbar() {
 
             {/* Tab Content */}
             <div className="px-4 py-3 min-h-[64px] bg-card">
-                {/* Home Tab - Text Formatting */}
+                {/* Home Tab - Text Formatting OR Global Settings */}
                 {activeTab === 'home' && (
-                    <div className="flex items-center gap-4">
-                        {/* Font Size */}
-                        <div className="flex items-center gap-2">
-                            <select
-                                value={textContent?.fontSize?.toString() || '16'}
-                                onChange={(e) => setFontSize(e.target.value)}
-                                disabled={!isTextBlock}
-                                className="px-2 py-1.5 bg-input border border-border rounded text-sm text-foreground w-20 disabled:opacity-50"
-                            >
-                                {fontSizes.map((size) => (
-                                    <option key={size} value={size}>{size}px</option>
-                                ))}
-                            </select>
+                    <div className="flex items-center gap-4 flex-wrap">
+                        {/* Always show Layout Settings */}
+                        <div className="flex items-center gap-6">
+                            <span className="text-xs font-medium text-foreground">Layout Settings:</span>
+                            <div className="flex items-center gap-3">
+                                <label className="text-xs text-muted-foreground">Columns:</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="24"
+                                    value={cols}
+                                    onChange={(e) => updateGridSettings({ cols: Math.max(1, Math.min(24, parseInt(e.target.value) || 12)) })}
+                                    className="w-16 px-2 py-1 bg-input border border-border rounded text-xs text-foreground"
+                                />
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <label className="text-xs text-muted-foreground">Row Height (px):</label>
+                                <input
+                                    type="number"
+                                    min="20"
+                                    max="500"
+                                    value={rowHeight}
+                                    onChange={(e) => updateGridSettings({ rowHeight: Math.max(20, Math.min(500, parseInt(e.target.value) || 60)) })}
+                                    className="w-16 px-2 py-1 bg-input border border-border rounded text-xs text-foreground"
+                                />
+                            </div>
                         </div>
 
-                        <div className="h-8 w-px bg-border" />
+                        {/* Separator if text formatting options are shown */}
+                        {isTextBlock && <div className="h-8 w-px bg-border hidden sm:block" />}
 
-                        {/* Text Formatting */}
-                        <div className="flex items-center gap-1">
-                            <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={toggleBold}
-                                disabled={!isTextBlock}
-                                className={`p-2 rounded transition-colors ${textContent?.fontWeight === 'bold' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                <Bold className="h-4 w-4" />
-                            </button>
-                            <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={toggleItalic}
-                                disabled={!isTextBlock}
-                                className={`p-2 rounded transition-colors ${textContent?.fontStyle === 'italic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                <Italic className="h-4 w-4" />
-                            </button>
-                            <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={toggleUnderline}
-                                disabled={!isTextBlock}
-                                className={`p-2 rounded transition-colors ${textContent?.textDecoration === 'underline' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                <Underline className="h-4 w-4" />
-                            </button>
-                        </div>
+                        {/* Text Formatting Options */}
+                        {isTextBlock && (
+                            <>
+                                {/* Font Size */}
+                                <div className="flex items-center gap-2">
+                                    <select
+                                        value={textContent?.fontSize?.toString() || '16'}
+                                        onChange={(e) => setFontSize(e.target.value)}
+                                        className="px-2 py-1.5 bg-input border border-border rounded text-sm text-foreground w-20"
+                                    >
+                                        {fontSizes.map((size) => (
+                                            <option key={size} value={size}>{size}px</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                        <div className="h-8 w-px bg-border" />
+                                <div className="h-8 w-px bg-border" />
 
-                        {/* Text Alignment */}
-                        <div className="flex items-center gap-1">
-                            <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => setAlignment('left')}
-                                disabled={!isTextBlock}
-                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'left' || !textContent?.textAlign ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                <AlignLeft className="h-4 w-4" />
-                            </button>
-                            <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => setAlignment('center')}
-                                disabled={!isTextBlock}
-                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'center' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                <AlignCenter className="h-4 w-4" />
-                            </button>
-                            <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => setAlignment('right')}
-                                disabled={!isTextBlock}
-                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'right' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                <AlignRight className="h-4 w-4" />
-                            </button>
-                            <button
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => setAlignment('justify')}
-                                disabled={!isTextBlock}
-                                className={`p-2 rounded transition-colors ${textContent?.textAlign === 'justify' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                <AlignJustify className="h-4 w-4" />
-                            </button>
-                        </div>
+                                {/* Text Formatting */}
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={toggleBold}
+                                        className={`p-2 rounded transition-colors ${textContent?.fontWeight === 'bold' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+                                    >
+                                        <Bold className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={toggleItalic}
+                                        className={`p-2 rounded transition-colors ${textContent?.fontStyle === 'italic' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+                                    >
+                                        <Italic className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={toggleUnderline}
+                                        className={`p-2 rounded transition-colors ${textContent?.textDecoration === 'underline' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+                                    >
+                                        <Underline className="h-4 w-4" />
+                                    </button>
+                                </div>
+
+                                <div className="h-8 w-px bg-border" />
+
+                                {/* Text Alignment */}
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setAlignment('left')}
+                                        className={`p-2 rounded transition-colors ${textContent?.textAlign === 'left' || !textContent?.textAlign ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+                                    >
+                                        <AlignLeft className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setAlignment('center')}
+                                        className={`p-2 rounded transition-colors ${textContent?.textAlign === 'center' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+                                    >
+                                        <AlignCenter className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setAlignment('right')}
+                                        className={`p-2 rounded transition-colors ${textContent?.textAlign === 'right' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+                                    >
+                                        <AlignRight className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setAlignment('justify')}
+                                        className={`p-2 rounded transition-colors ${textContent?.textAlign === 'justify' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-foreground'}`}
+                                    >
+                                        <AlignJustify className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </>
+                        )}
 
                         {!isTextBlock && (
-                            <span className="text-sm text-muted-foreground ml-2">
+                            <span className="text-sm text-muted-foreground ml-auto">
                                 {t('dashboard.layoutEditor.selectTextBlock')}
                             </span>
                         )}
@@ -623,6 +705,33 @@ export function RibbonToolbar() {
             {/* Custom Design Panel (expanded) - Available for all themes */}
             {activeTab === 'design' && customExpanded && (
                 <div className="px-4 py-3 bg-muted/30 border-t border-border space-y-4">
+                    {/* Layout Grid Settings */}
+                    <div className="flex items-center gap-6 pb-4 border-b border-border/50">
+                        <span className="text-xs font-medium text-foreground">Layout Settings:</span>
+                        <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground">Columns:</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="24"
+                                value={cols}
+                                onChange={(e) => updateGridSettings({ cols: Math.max(1, Math.min(24, parseInt(e.target.value) || 12)) })}
+                                className="w-16 px-2 py-1 bg-input border border-border rounded text-xs text-foreground"
+                            />
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <label className="text-xs text-muted-foreground">Row Height (px):</label>
+                            <input
+                                type="number"
+                                min="20"
+                                max="500"
+                                value={rowHeight}
+                                onChange={(e) => updateGridSettings({ rowHeight: Math.max(20, Math.min(500, parseInt(e.target.value) || 60)) })}
+                                className="w-16 px-2 py-1 bg-input border border-border rounded text-xs text-foreground"
+                            />
+                        </div>
+                    </div>
+
                     {/* Font Dropdowns */}
                     <div className="flex items-center gap-6">
                         <span className="text-xs font-medium text-foreground">{t('dashboard.layoutEditor.fonts')}:</span>

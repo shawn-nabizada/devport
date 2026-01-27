@@ -137,7 +137,7 @@ export default function DashboardPage() {
                             {t('dashboard.allSet') || 'You are all set!'}
                         </CardTitle>
                         <CardDescription>
-                            Your portfolio is looking great. Keep it updated!
+                            {t('dashboard.allSetDescription')}
                         </CardDescription>
                     </CardHeader>
                 </Card>

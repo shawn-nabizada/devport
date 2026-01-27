@@ -84,9 +84,18 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
         }
     };
 
+    // Build inline styles from data
+    const textStyles: React.CSSProperties = {
+        fontSize: data.fontSize ? `${data.fontSize}px` : undefined,
+        fontWeight: data.fontWeight || undefined,
+        fontStyle: data.fontStyle || undefined,
+        textDecoration: data.textDecoration || undefined,
+        textAlign: data.textAlign || undefined,
+    };
+
     if (editMode && isEditing) {
         return (
-            <div className="h-full p-4 bg-white dark:bg-gray-800">
+            <div className="h-full p-4 bg-card/50">
                 {data.variant === 'heading' ? (
                     <input
                         ref={inputRef}
@@ -95,7 +104,12 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
                         onChange={(e) => setEditText(e.target.value)}
                         onBlur={handleBlur}
                         onKeyDown={handleKeyDown}
-                        className="w-full text-2xl font-bold border-b-2 border-blue-500 outline-none bg-transparent"
+                        className="w-full border-b-2 border-primary outline-none bg-transparent text-foreground"
+                        style={{
+                            ...textStyles,
+                            fontSize: textStyles.fontSize || '1.5rem',
+                            fontWeight: textStyles.fontWeight || 'bold',
+                        }}
                     />
                 ) : (
                     <textarea
@@ -104,8 +118,9 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
                         onChange={(e) => setEditText(e.target.value)}
                         onBlur={handleBlur}
                         onKeyDown={handleKeyDown}
-                        className="w-full h-full resize-none border border-blue-500 rounded p-2 outline-none bg-transparent"
+                        className="w-full h-full resize-none border border-primary rounded p-2 outline-none bg-transparent text-foreground"
                         placeholder={t('dashboard.layoutEditor.textPlaceholder')}
+                        style={textStyles}
                     />
                 )}
             </div>
@@ -114,15 +129,25 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
 
     return (
         <div
-            className="h-full p-4 bg-white dark:bg-gray-800 cursor-text"
+            className="h-full p-4 bg-card/50 cursor-text"
             onClick={startEditing}
         >
             {data.variant === 'heading' ? (
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h2
+                    className="text-foreground"
+                    style={{
+                        ...textStyles,
+                        fontSize: textStyles.fontSize || '1.5rem',
+                        fontWeight: textStyles.fontWeight || 'bold',
+                    }}
+                >
                     {text}
                 </h2>
             ) : (
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                <p
+                    className="text-foreground whitespace-pre-wrap"
+                    style={textStyles}
+                >
                     {text}
                 </p>
             )}

@@ -34,21 +34,24 @@ export function Navbar() {
             className="fixed top-0 left-0 right-0 z-[999] w-full border-b border-border bg-background"
             style={{ viewTransitionName: 'topnav' } as React.CSSProperties}
         >
-            <div className="container mx-auto flex h-24 items-center px-4">
-                {/* Left side - Logo */}
-                <Link
-                    href="/"
-                    className="flex items-center gap-2 font-bold text-2xl hover:opacity-80 transition-opacity text-foreground"
-                >
-                    <Ship className="w-8 h-8 text-primary" />
-                    <span className="hidden sm:inline">DevPort</span>
-                </Link>
+            {/* 3-column grid: left, center, right - each section stays in its place */}
+            <div className="container mx-auto grid grid-cols-3 h-24 items-center px-4">
+                {/* Left section - Logo (left-aligned) */}
+                <div className="flex justify-start">
+                    <Link
+                        href="/"
+                        className="flex items-center gap-2 font-bold text-2xl hover:opacity-80 transition-opacity text-foreground"
+                    >
+                        <Ship className="w-8 h-8 text-primary" />
+                        <span className="hidden sm:inline">DevPort</span>
+                    </Link>
+                </div>
 
-                {/* Center - Nav links */}
-                <div className="flex-1 flex items-center justify-center gap-6">
+                {/* Center section - Nav links (centered) */}
+                <div className="flex items-center justify-center gap-6">
                     <Link
                         href="/gallery"
-                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
                     >
                         <Compass className="h-4 w-4" />
                         <span>{t('nav.explore')}</span>
@@ -57,7 +60,7 @@ export function Navbar() {
                     {isAuthenticated && (
                         <Link
                             href="/dashboard"
-                            className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            className="flex items-center gap-2 text-lg font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
                         >
                             <LayoutDashboard className="h-4 w-4" />
                             <span>{t('nav.myPortfolio')}</span>
@@ -65,8 +68,8 @@ export function Navbar() {
                     )}
                 </div>
 
-                {/* Right side - User controls */}
-                <div className="flex items-center gap-4">
+                {/* Right section - User controls (right-aligned) */}
+                <div className="flex items-center justify-end gap-4">
                     {/* Theme Toggle */}
                     <ModeToggle />
 
@@ -146,13 +149,13 @@ export function Navbar() {
                         <div className="flex items-center gap-6">
                             <Link
                                 href="/login"
-                                className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                className="text-lg font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
                             >
                                 {t('auth.login')}
                             </Link>
                             <Link
                                 href="/register"
-                                className="text-lg font-medium px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                className="text-lg font-medium px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors whitespace-nowrap"
                             >
                                 {t('auth.register')}
                             </Link>

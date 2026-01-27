@@ -27,17 +27,25 @@ export function useThemeContext() {
 interface ThemeProviderProps {
     children: ReactNode;
     initialThemeId?: ThemeId;
+    /**
+     * When true, theme CSS variables are NOT applied to document.documentElement.
+     * Use this for theme selector pages where you only want to preview themes
+     * without affecting the admin UI styling.
+     */
+    scoped?: boolean;
 }
 
-export function ThemeProvider({ children, initialThemeId = 'tech' }: ThemeProviderProps) {
+export function ThemeProvider({ children, initialThemeId = 'tech', scoped = false }: ThemeProviderProps) {
     const [themeId, setThemeIdState] = useState<ThemeId>(initialThemeId);
     const [currentTheme, setCurrentTheme] = useState<ThemeConfig>(
         getThemeById(initialThemeId) || PRESET_THEMES[0]
     );
     const [isSaving, setIsSaving] = useState(false);
 
-    // Apply theme CSS variables to document
+    // Apply theme CSS variables to document (only if not scoped)
     const applyThemeCSSVariables = useCallback((theme: ThemeConfig) => {
+        if (scoped) return; // Don't apply globally when scoped
+
         const root = document.documentElement;
         const isDark = root.classList.contains('dark');
         const colors = isDark ? theme.colors.dark : theme.colors.light;
@@ -55,10 +63,12 @@ export function ThemeProvider({ children, initialThemeId = 'tech' }: ThemeProvid
 
         // Apply radius
         root.style.setProperty('--radius', theme.radius);
-    }, []);
+    }, [scoped]);
 
-    // Load font if needed
+    // Load font if needed (only if not scoped)
     const loadFonts = useCallback((theme: ThemeConfig) => {
+        if (scoped) return; // Don't load fonts when scoped
+
         const fonts = new Set([theme.fonts.sans, theme.fonts.serif, theme.fonts.mono]);
 
         fonts.forEach(fontFamily => {
@@ -73,7 +83,7 @@ export function ThemeProvider({ children, initialThemeId = 'tech' }: ThemeProvid
                 }
             }
         });
-    }, []);
+    }, [scoped]);
 
     const setThemeId = useCallback((id: ThemeId) => {
         setThemeIdState(id);
@@ -107,8 +117,10 @@ export function ThemeProvider({ children, initialThemeId = 'tech' }: ThemeProvid
         }
     }, [themeId]);
 
-    // Apply theme on mount and when dark mode changes
+    // Apply theme on mount and when dark mode changes (only if not scoped)
     useEffect(() => {
+        if (scoped) return;
+
         applyThemeCSSVariables(currentTheme);
 
         // Watch for dark mode changes
@@ -123,12 +135,13 @@ export function ThemeProvider({ children, initialThemeId = 'tech' }: ThemeProvid
         observer.observe(document.documentElement, { attributes: true });
 
         return () => observer.disconnect();
-    }, [currentTheme, applyThemeCSSVariables]);
+    }, [currentTheme, applyThemeCSSVariables, scoped]);
 
-    // Load fonts on mount
+    // Load fonts on mount (only if not scoped)
     useEffect(() => {
+        if (scoped) return;
         loadFonts(currentTheme);
-    }, [currentTheme, loadFonts]);
+    }, [currentTheme, loadFonts, scoped]);
 
     const value: ThemeContextValue = {
         currentTheme,
@@ -142,3 +155,4 @@ export function ThemeProvider({ children, initialThemeId = 'tech' }: ThemeProvid
 
     return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
+

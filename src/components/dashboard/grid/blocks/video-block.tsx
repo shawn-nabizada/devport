@@ -39,9 +39,9 @@ export function VideoBlock({ data }: VideoBlockProps) {
 
     if (!data.url) {
         return (
-            <div className="h-full flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800 p-4">
-                <Video className="h-12 w-12 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500">No video set</p>
+            <div className="h-full flex flex-col items-center justify-center bg-card/50 p-4">
+                <Video className="h-12 w-12 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">No video set</p>
             </div>
         );
     }
@@ -50,7 +50,7 @@ export function VideoBlock({ data }: VideoBlockProps) {
 
     if (data.source === 'upload') {
         return (
-            <div className="h-full flex flex-col bg-white dark:bg-gray-800">
+            <div className="h-full flex flex-col bg-card/50">
                 <div className="flex-1 relative">
                     <video
                         src={data.url}
@@ -62,7 +62,7 @@ export function VideoBlock({ data }: VideoBlockProps) {
                     />
                 </div>
                 {title && (
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 p-2 text-center">
+                    <p className="text-sm font-medium text-foreground p-2 text-center">
                         {title}
                     </p>
                 )}
@@ -72,7 +72,7 @@ export function VideoBlock({ data }: VideoBlockProps) {
 
     // YouTube or Vimeo embed
     return (
-        <div className="h-full flex flex-col bg-white dark:bg-gray-800">
+        <div className="h-full flex flex-col bg-card/50">
             <div className="flex-1 relative">
                 <iframe
                     src={embedUrl || ''}
@@ -83,7 +83,7 @@ export function VideoBlock({ data }: VideoBlockProps) {
                 />
             </div>
             {title && (
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 p-2 text-center">
+                <p className="text-sm font-medium text-foreground p-2 text-center">
                     {title}
                 </p>
             )}

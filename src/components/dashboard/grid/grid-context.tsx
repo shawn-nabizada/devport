@@ -2,10 +2,13 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import type { LayoutItem, GridBlock, DeviceType } from '@/lib/db/layout-types';
+import { DEFAULT_LAYOUT_CONFIG } from '@/lib/db/layout-types';
 
 interface DeviceLayoutState {
     layout: LayoutItem[];
     blocks: GridBlock[];
+    cols: number;
+    rowHeight: number;
     isDirty: boolean;
 }
 
@@ -13,6 +16,11 @@ interface GridContextValue {
     // Layout state (current device)
     layout: LayoutItem[];
     setLayout: (layout: LayoutItem[]) => void;
+
+    // Grid settings
+    cols: number;
+    rowHeight: number;
+    updateGridSettings: (settings: { cols?: number; rowHeight?: number }) => void;
 
     // Blocks (current device)
     blocks: GridBlock[];
@@ -31,6 +39,7 @@ interface GridContextValue {
     // Actions
     addBlock: (block: GridBlock) => void;
     updateBlock: (id: string, content: GridBlock['content']) => void;
+    updateBlockLayout: (id: string, layout: Partial<LayoutItem>) => void;
     removeBlock: (id: string) => void;
     saveLayout: () => Promise<void>;
 
@@ -79,14 +88,19 @@ export function GridProvider({
     const [desktopState, setDesktopState] = useState<DeviceLayoutState>({
         layout: initialLayout,
         blocks: initialBlocks,
+        cols: DEFAULT_LAYOUT_CONFIG.desktop.cols,
+        rowHeight: DEFAULT_LAYOUT_CONFIG.desktop.rowHeight,
         isDirty: false,
     });
     const [mobileState, setMobileState] = useState<DeviceLayoutState>({
         layout: initialMobileLayout,
         blocks: initialMobileBlocks,
+        cols: DEFAULT_LAYOUT_CONFIG.mobile.cols,
+        rowHeight: DEFAULT_LAYOUT_CONFIG.mobile.rowHeight,
         isDirty: false,
     });
     const [mobileLoaded, setMobileLoaded] = useState(initialMobileLayout.length > 0);
+    const [desktopLoaded, setDesktopLoaded] = useState(initialLayout.length > 0);
 
     const [editMode, setEditMode] = useState(false);
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -100,6 +114,10 @@ export function GridProvider({
 
     const loadDeviceLayout = useCallback(async (targetDevice: DeviceType) => {
         if (readOnly) return;
+
+        // If already loaded via SSR/initial prop and not forced, might want to skip?
+        // But here we rely on the flag to ensure we fetch fresh data if needed.
+
         setIsLoadingDevice(true);
         try {
             const [layoutRes, blocksRes] = await Promise.all([
@@ -109,29 +127,35 @@ export function GridProvider({
 
             let layoutData: LayoutItem[] = [];
             let blocksData: GridBlock[] = [];
+            let loadedCols = DEFAULT_LAYOUT_CONFIG[targetDevice].cols;
+            let loadedRowHeight = DEFAULT_LAYOUT_CONFIG[targetDevice].rowHeight;
 
             if (layoutRes.ok) {
                 const data = await layoutRes.json();
                 layoutData = data.layout || [];
+                // Use saved values if they exist, otherwise default
+                if (data.cols) loadedCols = data.cols;
+                if (data.rowHeight) loadedRowHeight = data.rowHeight;
             }
 
             if (blocksRes.ok) {
                 blocksData = await blocksRes.json();
             }
 
+            const newState = {
+                layout: layoutData,
+                blocks: blocksData,
+                cols: loadedCols,
+                rowHeight: loadedRowHeight,
+                isDirty: false,
+            };
+
             if (targetDevice === 'mobile') {
-                setMobileState({
-                    layout: layoutData,
-                    blocks: blocksData,
-                    isDirty: false,
-                });
+                setMobileState(newState);
                 setMobileLoaded(true);
             } else {
-                setDesktopState({
-                    layout: layoutData,
-                    blocks: blocksData,
-                    isDirty: false,
-                });
+                setDesktopState(newState);
+                setDesktopLoaded(true);
             }
         } catch (error) {
             console.error(`Failed to load ${targetDevice} layout:`, error);
@@ -139,6 +163,13 @@ export function GridProvider({
             setIsLoadingDevice(false);
         }
     }, [readOnly]);
+
+    // Initial load for Desktop if not provided (though page usually provides it)
+    useEffect(() => {
+        if (device === 'desktop' && !desktopLoaded && !readOnly) {
+            loadDeviceLayout('desktop');
+        }
+    }, [device, desktopLoaded, readOnly, loadDeviceLayout]);
 
     // Load mobile layout when first switching to mobile
     useEffect(() => {
@@ -157,6 +188,15 @@ export function GridProvider({
         setCurrentState(prev => ({
             ...prev,
             layout: newLayout,
+            isDirty: true,
+        }));
+    }, [setCurrentState]);
+
+    const updateGridSettings = useCallback((settings: { cols?: number; rowHeight?: number }) => {
+        setCurrentState(prev => ({
+            ...prev,
+            cols: settings.cols ?? prev.cols,
+            rowHeight: settings.rowHeight ?? prev.rowHeight,
             isDirty: true,
         }));
     }, [setCurrentState]);
@@ -204,6 +244,18 @@ export function GridProvider({
         }));
     }, [setCurrentState]);
 
+    const updateBlockLayout = useCallback((id: string, changes: Partial<LayoutItem>) => {
+        setCurrentState(prev => ({
+            ...prev,
+            layout: prev.layout.map(item =>
+                item.i === id
+                    ? { ...item, ...changes }
+                    : item
+            ),
+            isDirty: true,
+        }));
+    }, [setCurrentState]);
+
     const removeBlock = useCallback((id: string) => {
         setCurrentState(prev => ({
             ...prev,
@@ -224,6 +276,8 @@ export function GridProvider({
                 body: JSON.stringify({
                     device,
                     layout: currentState.layout,
+                    cols: currentState.cols,
+                    rowHeight: currentState.rowHeight,
                     enabled: true
                 }),
             });
@@ -263,7 +317,7 @@ export function GridProvider({
 
     const saveCheckpoint = useCallback(() => {
         setHistory(prev => ({
-            past: [...prev.past, { ...currentState }], // Deep copy state? layout/blocks refer to arrays. { ...currentState } shadows.
+            past: [...prev.past, { ...currentState }],
             future: []
         }));
     }, [currentState]);
@@ -306,12 +360,12 @@ export function GridProvider({
         });
     }, [currentState, setCurrentState]);
 
-    // Wrap state setters to support history where needed?
-    // Actually, we rely on manual saveCheckpoint() calls in Editor.
-
     const value: GridContextValue = {
         layout: currentState.layout,
         setLayout,
+        cols: currentState.cols,
+        rowHeight: currentState.rowHeight,
+        updateGridSettings,
         blocks: currentState.blocks,
         setBlocks,
         editMode,
@@ -322,6 +376,7 @@ export function GridProvider({
         setDevice,
         addBlock,
         updateBlock,
+        updateBlockLayout,
         removeBlock,
         saveLayout,
         isSaving,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { auth } from '@/auth';
 import clientPromise from '@/lib/mongodb';
+import { cascadeDeleteUserData } from '@/lib/db/user-collections';
 
 export async function GET() {
     try {
@@ -85,23 +86,8 @@ export async function DELETE() {
         const client = await clientPromise;
         const db = client.db();
 
-        // Cascade delete all user data
-        await Promise.all([
-            db.collection('users').deleteOne({ _id: userId }),
-            db.collection('profiles').deleteOne({ userId }),
-            db.collection('skills').deleteMany({ userId }),
-            db.collection('projects').deleteMany({ userId }),
-            db.collection('experience').deleteMany({ userId }),
-            db.collection('education').deleteMany({ userId }),
-            db.collection('hobbies').deleteMany({ userId }),
-            db.collection('resumes').deleteMany({ userId }),
-            db.collection('testimonials').deleteMany({ userId }),
-            db.collection('messages').deleteMany({ userId }), // Messages received by user
-            db.collection('layouts').deleteMany({ userId }),
-            db.collection('blocks').deleteMany({ userId }),
-            db.collection('themeSettings').deleteOne({ userId }),
-            db.collection('notification_preferences').deleteOne({ userId }),
-        ]);
+        // Use centralized cascade delete
+        await cascadeDeleteUserData(db, userId);
 
         return NextResponse.json({ message: 'Account deleted' });
     } catch (error) {

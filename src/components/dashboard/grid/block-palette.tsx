@@ -8,8 +8,12 @@ import {
     Type,
     Image,
     BarChart3,
-    Share2,
     Video,
+    FolderKanban,
+    Briefcase,
+    GraduationCap,
+    Heart,
+    FileText,
     Plus,
 } from 'lucide-react';
 import type { BlockType, GridBlock, BlockContent } from '@/lib/db/layout-types';
@@ -18,8 +22,12 @@ const blockTypes: { type: BlockType; icon: React.ElementType; labelKey: string }
     { type: 'text', icon: Type, labelKey: 'text' },
     { type: 'image', icon: Image, labelKey: 'image' },
     { type: 'skills', icon: BarChart3, labelKey: 'skills' },
-    { type: 'social', icon: Share2, labelKey: 'social' },
     { type: 'video', icon: Video, labelKey: 'video' },
+    { type: 'projects', icon: FolderKanban, labelKey: 'projects' },
+    { type: 'experience', icon: Briefcase, labelKey: 'experience' },
+    { type: 'education', icon: GraduationCap, labelKey: 'education' },
+    { type: 'hobbies', icon: Heart, labelKey: 'hobbies' },
+    { type: 'resume', icon: FileText, labelKey: 'resume' },
 ];
 
 function getDefaultContent(type: BlockType): BlockContent {
@@ -51,14 +59,6 @@ function getDefaultContent(type: BlockType): BlockContent {
                     layout: 'vertical',
                 },
             };
-        case 'social':
-            return {
-                type: 'social',
-                data: {
-                    links: [],
-                    displayStyle: 'icons',
-                },
-            };
         case 'video':
             return {
                 type: 'video',
@@ -67,6 +67,50 @@ function getDefaultContent(type: BlockType): BlockContent {
                     url: '',
                     autoplay: false,
                     muted: true,
+                },
+            };
+        case 'projects':
+            return {
+                type: 'projects',
+                data: {
+                    projectIds: [],
+                    layout: 'grid',
+                    showDescription: true,
+                    showTechnologies: true,
+                    featuredOnly: false,
+                },
+            };
+        case 'experience':
+            return {
+                type: 'experience',
+                data: {
+                    experienceIds: [],
+                    layout: 'timeline',
+                    showDescription: true,
+                },
+            };
+        case 'education':
+            return {
+                type: 'education',
+                data: {
+                    educationIds: [],
+                    layout: 'timeline',
+                    showDescription: true,
+                },
+            };
+        case 'hobbies':
+            return {
+                type: 'hobbies',
+                data: {
+                    layout: 'tags',
+                },
+            };
+        case 'resume':
+            return {
+                type: 'resume',
+                data: {
+                    displayStyle: 'buttons',
+                    showBothLanguages: true,
                 },
             };
     }

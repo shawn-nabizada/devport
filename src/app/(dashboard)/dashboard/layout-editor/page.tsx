@@ -55,8 +55,13 @@ export default function LayoutEditorPage() {
     // Update editor width on resize
     useEffect(() => {
         const updateWidth = () => {
-            // Full width minus some padding
-            setEditorWidth(Math.min(1400, window.innerWidth - 64));
+            // Full width minus some padding (adjusting for sidebar/container)
+            const container = document.getElementById('editor-container');
+            if (container) {
+                setEditorWidth(container.clientWidth - 48); // Account for card padding
+            } else {
+                setEditorWidth(window.innerWidth - 64);
+            }
         };
 
         updateWidth();
@@ -79,8 +84,8 @@ export default function LayoutEditorPage() {
                 <RibbonToolbar />
 
                 {/* Main Editor Area - Full Width */}
-                <main className="p-6">
-                    <div className="max-w-[1400px] mx-auto">
+                <main className="p-4 md:p-6">
+                    <div id="editor-container" className="container mx-auto">
                         <div className="bg-card rounded-xl shadow-lg p-6 min-h-[600px]">
                             <GridEditor width={editorWidth} />
                         </div>

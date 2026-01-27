@@ -1,6 +1,7 @@
+import { cache } from 'react';
 import clientPromise from '@/lib/mongodb';
 
-export async function getPortfolio(username: string) {
+const _getPortfolio = async (username: string) => {
     try {
         const client = await clientPromise;
         const db = client.db();
@@ -78,4 +79,8 @@ export async function getPortfolio(username: string) {
         console.error('Error in getPortfolio:', error);
         return null;
     }
-}
+};
+
+// Wrap with React cache() to deduplicate calls during the same request
+// (e.g., generateMetadata + page component both call this)
+export const getPortfolio = cache(_getPortfolio);

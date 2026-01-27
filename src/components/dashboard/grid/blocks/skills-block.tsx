@@ -44,22 +44,22 @@ export function SkillsBlock({ data }: SkillsBlockProps) {
 
     if (loading) {
         return (
-            <div className="h-full p-4 bg-white dark:bg-gray-800 flex items-center justify-center">
-                <div className="animate-pulse text-gray-400">Loading skills...</div>
+            <div className="h-full p-4 bg-card/50 flex items-center justify-center">
+                <div className="animate-pulse text-muted-foreground">Loading skills...</div>
             </div>
         );
     }
 
     if (skills.length === 0) {
         return (
-            <div className="h-full p-4 bg-white dark:bg-gray-800 flex items-center justify-center">
-                <p className="text-gray-500">No skills to display</p>
+            <div className="h-full p-4 bg-card/50 flex items-center justify-center">
+                <p className="text-muted-foreground">No skills to display</p>
             </div>
         );
     }
 
     return (
-        <div className={`h-full p-4 bg-white dark:bg-gray-800 overflow-auto ${data.layout === 'horizontal' ? 'flex flex-wrap gap-4' : 'space-y-3'}`}>
+        <div className={`h-full p-4 bg-card/50 overflow-auto ${data.layout === 'horizontal' ? 'flex flex-wrap gap-4' : 'space-y-3'}`}>
             {skills.map((skill) => (
                 <div
                     key={skill._id}
@@ -67,19 +67,19 @@ export function SkillsBlock({ data }: SkillsBlockProps) {
                 >
                     <div className="flex justify-between items-center mb-1">
                         {data.showLabels && (
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <span className="text-sm font-medium text-foreground">
                                 {skill.name[language] || skill.name.en}
                             </span>
                         )}
                         {data.showPercentage && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-foreground">
                                 {skill.proficiency}%
                             </span>
                         )}
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div className="w-full bg-secondary rounded-full h-2.5">
                         <div
-                            className="bg-gradient-to-r from-blue-500 to-purple-500 h-2.5 rounded-full transition-all duration-500"
+                            className="bg-primary h-2.5 rounded-full transition-all duration-500"
                             style={{ width: `${skill.proficiency}%` }}
                         />
                     </div>

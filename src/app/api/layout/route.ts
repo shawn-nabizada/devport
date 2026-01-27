@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { device, layout, enabled } = body;
+        const { device, layout, enabled, cols, rowHeight } = body;
 
         if (!device || !['desktop', 'mobile'].includes(device)) {
             return NextResponse.json({ error: 'Invalid device type' }, { status: 400 });
@@ -72,6 +72,14 @@ export async function POST(request: NextRequest) {
         const client = await clientPromise;
         const db = client.db();
 
+        // Use provided values or fall back to defaults effectively
+        // However, we only want to update them if provided, or default on insert.
+        // But for simplicity in this logic, the frontend will always send current values.
+        // We'll enforce some sane defaults if missing so we don't break things.
+
+        const newCols = typeof cols === 'number' ? cols : DEFAULT_CONFIG[device as DeviceType].cols;
+        const newRowHeight = typeof rowHeight === 'number' ? rowHeight : DEFAULT_CONFIG[device as DeviceType].rowHeight;
+
         const result = await db.collection<PortfolioLayout>('layouts').updateOne(
             {
                 userId: new ObjectId(session.user.id),
@@ -80,8 +88,8 @@ export async function POST(request: NextRequest) {
             {
                 $set: {
                     layout,
-                    cols: DEFAULT_CONFIG[device as DeviceType].cols,
-                    rowHeight: DEFAULT_CONFIG[device as DeviceType].rowHeight,
+                    cols: newCols,
+                    rowHeight: newRowHeight,
                     enabled: enabled ?? true,
                     updatedAt: new Date(),
                 },

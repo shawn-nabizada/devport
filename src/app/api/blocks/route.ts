@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { type, content, device = 'desktop' } = body;
 
-        const validTypes: BlockType[] = ['text', 'image', 'skills', 'social', 'video'];
+        const validTypes: BlockType[] = ['text', 'image', 'skills', 'video', 'projects', 'experience', 'education', 'hobbies', 'resume'];
         if (!type || !validTypes.includes(type)) {
             return NextResponse.json({ error: 'Invalid block type' }, { status: 400 });
         }

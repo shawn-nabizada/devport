@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { cascadeDeleteUserData } from '@/lib/db/user-collections';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,23 +52,8 @@ export async function DELETE(request: Request) {
         const db = client.db();
         const oid = new ObjectId(userId);
 
-        // Cascade Delete
-        await Promise.all([
-            db.collection('users').deleteOne({ _id: oid }),
-            db.collection('profiles').deleteOne({ userId: oid }),
-            db.collection('skills').deleteMany({ userId: oid }),
-            db.collection('projects').deleteMany({ userId: oid }),
-            db.collection('experience').deleteMany({ userId: oid }),
-            db.collection('education').deleteMany({ userId: oid }),
-            db.collection('hobbies').deleteMany({ userId: oid }),
-            db.collection('resumes').deleteMany({ userId: oid }),
-            db.collection('testimonials').deleteMany({ userId: oid }),
-            db.collection('messages').deleteMany({ userId: oid }),
-            db.collection('layouts').deleteMany({ userId: oid }),
-            db.collection('blocks').deleteMany({ userId: oid }),
-            db.collection('themeSettings').deleteOne({ userId: oid }),
-            db.collection('notification_preferences').deleteOne({ userId: oid }),
-        ]);
+        // Use centralized cascade delete
+        await cascadeDeleteUserData(db, oid);
 
         return NextResponse.json({ success: true });
     } catch (error) {

@@ -7,7 +7,7 @@ import { ObjectId } from 'mongodb';
 /**
  * Block types available in the grid editor
  */
-export type BlockType = 'text' | 'image' | 'skills' | 'social' | 'video';
+export type BlockType = 'text' | 'image' | 'skills' | 'video' | 'projects' | 'experience' | 'education' | 'hobbies' | 'resume';
 
 /**
  * Text block content with formatting options
@@ -52,17 +52,7 @@ export interface SkillsBlockContent {
     layout: 'vertical' | 'horizontal';
 }
 
-/**
- * Social links block content
- */
-export interface SocialBlockContent {
-    links: Array<{
-        platform: 'linkedin' | 'github' | 'twitter' | 'website' | 'email';
-        url: string;
-        label?: string;
-    }>;
-    displayStyle: 'icons' | 'buttons' | 'cards';
-}
+
 
 /**
  * Video block content
@@ -79,14 +69,62 @@ export interface VideoBlockContent {
 }
 
 /**
+ * Projects block content - displays user's projects
+ */
+export interface ProjectsBlockContent {
+    projectIds: string[]; // References to projects collection, empty = show all
+    layout: 'grid' | 'list' | 'carousel';
+    showDescription: boolean;
+    showTechnologies: boolean;
+    featuredOnly: boolean;
+}
+
+/**
+ * Experience block content - displays work experience
+ */
+export interface ExperienceBlockContent {
+    experienceIds: string[]; // References to experience collection, empty = show all
+    layout: 'timeline' | 'cards';
+    showDescription: boolean;
+}
+
+/**
+ * Education block content - displays education history
+ */
+export interface EducationBlockContent {
+    educationIds: string[]; // References to education collection, empty = show all
+    layout: 'timeline' | 'cards';
+    showDescription: boolean;
+}
+
+/**
+ * Hobbies block content - displays user's hobbies
+ */
+export interface HobbiesBlockContent {
+    layout: 'tags' | 'list' | 'grid';
+}
+
+/**
+ * Resume block content - displays resume download buttons
+ */
+export interface ResumeBlockContent {
+    displayStyle: 'buttons' | 'cards';
+    showBothLanguages: boolean;
+}
+
+/**
  * Union type for all block content types
  */
 export type BlockContent =
     | { type: 'text'; data: TextBlockContent }
     | { type: 'image'; data: ImageBlockContent }
     | { type: 'skills'; data: SkillsBlockContent }
-    | { type: 'social'; data: SocialBlockContent }
-    | { type: 'video'; data: VideoBlockContent };
+    | { type: 'video'; data: VideoBlockContent }
+    | { type: 'projects'; data: ProjectsBlockContent }
+    | { type: 'experience'; data: ExperienceBlockContent }
+    | { type: 'education'; data: EducationBlockContent }
+    | { type: 'hobbies'; data: HobbiesBlockContent }
+    | { type: 'resume'; data: ResumeBlockContent };
 
 /**
  * A block in the grid layout

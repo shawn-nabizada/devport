@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
-import type { UserProfile } from '@/lib/db/types';
-
-
 
 /**
  * GET /api/gallery - List public portfolios with search/filter
@@ -24,25 +21,37 @@ export async function GET(request: NextRequest) {
         const client = await clientPromise;
         const db = client.db();
 
-        // Build aggregation pipeline
+        // Build aggregation pipeline starting from users collection
+        // This ensures all users with usernames appear, even without explicit profile data
         const pipeline: object[] = [
-
-            // Join with users collection
+            // Only include users with a username (required for public portfolio URL)
             {
-                $lookup: {
-                    from: 'users',
-                    localField: 'userId',
-                    foreignField: '_id',
-                    as: 'user',
+                $match: {
+                    username: { $exists: true, $nin: [null, ''] },
                 },
             },
-            { $unwind: '$user' },
 
-            // Join with skills collection
+            // Left join with profiles collection (optional - user may not have saved profile)
+            {
+                $lookup: {
+                    from: 'profiles',
+                    localField: '_id',
+                    foreignField: 'userId',
+                    as: 'profile',
+                },
+            },
+            {
+                $unwind: {
+                    path: '$profile',
+                    preserveNullAndEmptyArrays: true, // Keep users without profiles
+                },
+            },
+
+            // Left join with skills collection
             {
                 $lookup: {
                     from: 'skills',
-                    localField: 'userId',
+                    localField: '_id',
                     foreignField: 'userId',
                     as: 'skills',
                 },
@@ -54,11 +63,12 @@ export async function GET(request: NextRequest) {
             pipeline.push({
                 $match: {
                     $or: [
-                        { 'user.name': { $regex: query, $options: 'i' } },
-                        { 'headline.en': { $regex: query, $options: 'i' } },
-                        { 'headline.fr': { $regex: query, $options: 'i' } },
-                        { 'bio.en': { $regex: query, $options: 'i' } },
-                        { 'bio.fr': { $regex: query, $options: 'i' } },
+                        { username: { $regex: query, $options: 'i' } },
+                        { name: { $regex: query, $options: 'i' } },
+                        { 'profile.headline.en': { $regex: query, $options: 'i' } },
+                        { 'profile.headline.fr': { $regex: query, $options: 'i' } },
+                        { 'profile.bio.en': { $regex: query, $options: 'i' } },
+                        { 'profile.bio.fr': { $regex: query, $options: 'i' } },
                     ],
                 },
             });
@@ -80,13 +90,13 @@ export async function GET(request: NextRequest) {
         // Project the fields we need
         pipeline.push({
             $project: {
-                userId: { $toString: '$userId' },
-                username: '$user.username',
-                name: '$user.name',
-                image: '$user.image',
-                headline: '$headline',
-                bio: '$bio',
-                location: '$location',
+                userId: { $toString: '$_id' },
+                username: '$username',
+                name: '$name',
+                image: '$image',
+                headline: { $ifNull: ['$profile.headline', { en: '', fr: '' }] },
+                bio: { $ifNull: ['$profile.bio', { en: '', fr: '' }] },
+                location: '$profile.location',
                 skills: {
                     $slice: [
                         {
@@ -102,27 +112,27 @@ export async function GET(request: NextRequest) {
                         6, // Limit to 6 skills per portfolio
                     ],
                 },
-                featuredAt: '$featuredAt',
+                featuredAt: '$profile.featuredAt',
             },
         });
 
-        // Sort: featured first, then by most recently updated
+        // Sort: featured first, then by most recently created
         pipeline.push({
             $sort: {
                 featuredAt: -1,
-                updatedAt: -1,
+                createdAt: -1,
             },
         });
 
         // Get total count for pagination
         const countPipeline = [...pipeline, { $count: 'total' }];
-        const countResult = await db.collection<UserProfile>('profiles').aggregate(countPipeline).toArray();
+        const countResult = await db.collection('users').aggregate(countPipeline).toArray();
         const total = countResult[0]?.total || 0;
 
         // Add pagination
         pipeline.push({ $skip: skip }, { $limit: limit });
 
-        const portfolios = await db.collection<UserProfile>('profiles').aggregate(pipeline).toArray();
+        const portfolios = await db.collection('users').aggregate(pipeline).toArray();
 
         // Separate featured and regular portfolios
         const featured = portfolios.filter(p => p.featuredAt);
