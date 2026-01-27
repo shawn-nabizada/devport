@@ -4,15 +4,13 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 import { useTheme } from 'next-themes';
-import { toast } from 'sonner';
 import { useGridContext } from './grid-context';
 import { useTranslation } from '@/lib/i18n';
 import {
     PRESET_THEMES,
     FONT_OPTIONS,
     ThemeId,
-    getThemeById,
-    applyThemeToPreview,
+    ThemeColors,
 } from '@/lib/db/theme-types';
 import {
     ArrowLeft,
@@ -170,122 +168,48 @@ function getDefaultContent(type: BlockType): BlockContent {
     }
 }
 
-export function RibbonToolbar() {
+interface RibbonToolbarProps {
+    currentThemeId: ThemeId;
+    currentCustomColors: Partial<ThemeColors>;
+    onThemeSelect: (id: ThemeId) => void;
+    onCustomColorChange: (colorName: string, colorValue: string) => void;
+}
+
+export function RibbonToolbar({
+    currentThemeId,
+    currentCustomColors,
+    onThemeSelect,
+    onCustomColorChange
+}: RibbonToolbarProps) {
     const {
         editMode,
         setEditMode,
         device,
         setDevice,
-        saveLayout,
-        isSaving,
-        isDirty,
-        addBlock,
-        selectedBlockId,
+        updateGridSettings,
+        resetLayout,
         blocks,
+        selectedBlockId,
+        saveLayout,
+        saveCheckpoint,
+        addBlock,
         updateBlock,
+        isDirty,
         undo,
         redo,
         canUndo,
         canRedo,
-        saveCheckpoint,
+        isSaving,
         cols,
         rowHeight,
-        range,
-        resetLayout,
     } = useGridContext();
     const { t, language } = useTranslation();
-    const { resolvedTheme } = useTheme();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _theme = useTheme(); // Keep hook call but suppress unused warning if intentionally keeping imports
 
     // Tab state
     const [activeTab, setActiveTab] = useState<TabId>('home');
-
-    // Theme state
-    const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('tech');
     const [customExpanded, setCustomExpanded] = useState(false);
-    const [hasLoadedTheme, setHasLoadedTheme] = useState(false);
-
-    // Custom color overrides
-    const [customColors, setCustomColors] = useState({
-        primary: '#7c3aed',
-        secondary: '#f3f4f6',
-        accent: '#8b5cf6',
-        background: '#ffffff',
-        foreground: '#0a0a0a',
-        card: '#ffffff',
-        muted: '#f3f4f6',
-        border: '#e5e7eb',
-    });
-
-    // Load saved theme settings on mount
-    useEffect(() => {
-        async function loadThemeSettings() {
-            try {
-                const res = await fetch('/api/theme');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.themeId) {
-                        setCurrentThemeId(data.themeId);
-                    }
-                    if (data.customColors) {
-                        setCustomColors(data.customColors);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to load theme settings:', error);
-            } finally {
-                setHasLoadedTheme(true);
-            }
-        }
-        loadThemeSettings();
-    }, []);
-
-    // Apply custom color to preview element and save to API
-    const applyCustomColor = (colorName: string, colorValue: string) => {
-        const newColors = { ...customColors, [colorName]: colorValue };
-        setCustomColors(newColors);
-
-        // Apply to preview immediately
-        const previewElement = document.getElementById('portfolio-preview');
-        if (previewElement) {
-            previewElement.style.setProperty(`--${colorName}`, colorValue);
-        }
-
-        // Save to API (debounced via requestAnimationFrame)
-        requestAnimationFrame(() => {
-            fetch('/api/theme', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    themeId: currentThemeId,
-                    customColors: newColors
-                }),
-            }).catch(err => console.error('Failed to save custom color:', err));
-        });
-    };
-
-    // Sync portfolio preview theme with site dark mode (only after initial load)
-    useEffect(() => {
-        if (!hasLoadedTheme) return;
-
-        const selectedTheme = getThemeById(currentThemeId);
-        if (selectedTheme) {
-            applyThemeToPreview(selectedTheme, resolvedTheme === 'dark');
-            // Only update colors from theme if user hasn't customized them
-            // (we keep the customColors from the API)
-        }
-    }, [resolvedTheme, currentThemeId, hasLoadedTheme]);
-
-    // Apply custom colors to preview after theme is applied
-    useEffect(() => {
-        if (!hasLoadedTheme) return;
-
-        const previewElement = document.getElementById('portfolio-preview');
-        if (previewElement) {
-            Object.entries(customColors).forEach(([name, value]) => {
-                previewElement.style.setProperty(`--${name}`, value);
-            });
-        }
-    }, [customColors, hasLoadedTheme]);
 
     // Get selected block for formatting
     const selectedBlock = blocks.find(b => b._id.toString() === selectedBlockId);
@@ -360,40 +284,7 @@ export function RibbonToolbar() {
         updateTextFormatting({ fontSize: parseInt(size) });
     };
 
-    const handleThemeSelect = async (themeId: ThemeId) => {
-        const selectedTheme = getThemeById(themeId);
-        if (!selectedTheme) return;
 
-        setCurrentThemeId(themeId);
-
-        // Reset custom colors state to the new theme's colors based on current mode
-        const mode = resolvedTheme === 'dark' ? 'dark' : 'light';
-        setCustomColors({
-            primary: selectedTheme.colors[mode].primary,
-            secondary: selectedTheme.colors[mode].secondary,
-            accent: selectedTheme.colors[mode].accent,
-            background: selectedTheme.colors[mode].background,
-            foreground: selectedTheme.colors[mode].foreground,
-            card: selectedTheme.colors[mode].card,
-            muted: selectedTheme.colors[mode].muted,
-            border: selectedTheme.colors[mode].border,
-        });
-
-        const isDark = document.documentElement.classList.contains('dark');
-        applyThemeToPreview(selectedTheme, isDark);
-
-        try {
-            await fetch('/api/theme', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ themeId }), // This clears customColors in DB
-            });
-            toast.success('Theme saved');
-        } catch (error) {
-            console.error('Failed to save theme:', error);
-            toast.error('Failed to save theme');
-        }
-    };
 
     // Warn on navigation with unsaved changes
     useEffect(() => {
@@ -408,9 +299,9 @@ export function RibbonToolbar() {
     }, [isDirty]);
 
     const tabs = [
-        { id: 'home' as TabId, label: 'Home' },
-        { id: 'insert' as TabId, label: 'Insert' },
-        { id: 'design' as TabId, label: 'Design' },
+        { id: 'home' as TabId, label: t('dashboard.layoutEditor.tabHome') },
+        { id: 'insert' as TabId, label: t('dashboard.layoutEditor.tabInsert') },
+        { id: 'design' as TabId, label: t('dashboard.layoutEditor.tabDesign') },
     ];
 
     return (
@@ -465,7 +356,7 @@ export function RibbonToolbar() {
                             }`}
                     >
                         <Monitor className="h-4 w-4" />
-                        <span>Desktop</span>
+                        <span>{t('dashboard.layoutEditor.desktop')}</span>
                     </button>
                     <button
                         onClick={() => setDevice('mobile')}
@@ -475,7 +366,7 @@ export function RibbonToolbar() {
                             }`}
                     >
                         <Smartphone className="h-4 w-4" />
-                        <span>Mobile</span>
+                        <span>{t('dashboard.layoutEditor.mobile')}</span>
                     </button>
                 </div>
 
@@ -548,9 +439,9 @@ export function RibbonToolbar() {
                     <div className="flex items-center gap-4 flex-wrap">
                         {/* Always show Layout Settings */}
                         <div className="flex items-center gap-6">
-                            <span className="text-xs font-medium text-foreground">Layout Settings:</span>
+                            <span className="text-xs font-medium text-foreground">{t('dashboard.layoutEditor.layoutSettings')}:</span>
                             <div className="flex items-center gap-3">
-                                <label className="text-xs text-muted-foreground">Columns:</label>
+                                <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.columns')}:</label>
                                 <input
                                     type="number"
                                     min="1"
@@ -561,7 +452,7 @@ export function RibbonToolbar() {
                                 />
                             </div>
                             <div className="flex items-center gap-3">
-                                <label className="text-xs text-muted-foreground">Row Height (px):</label>
+                                <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.rowHeight')}:</label>
                                 <input
                                     type="number"
                                     min="20"
@@ -697,7 +588,7 @@ export function RibbonToolbar() {
                             <Palette className="h-4 w-4 text-muted-foreground" />
                             <select
                                 value={currentThemeId}
-                                onChange={(e) => handleThemeSelect(e.target.value as ThemeId)}
+                                onChange={(e) => onThemeSelect(e.target.value as ThemeId)}
                                 className="px-3 py-1.5 bg-input border border-border rounded text-sm text-foreground min-w-[160px]"
                             >
                                 {PRESET_THEMES.map((theme) => (
@@ -715,7 +606,7 @@ export function RibbonToolbar() {
                             {PRESET_THEMES.map((themeOption) => (
                                 <button
                                     key={themeOption.id}
-                                    onClick={() => handleThemeSelect(themeOption.id)}
+                                    onClick={() => onThemeSelect(themeOption.id)}
                                     className={`w-6 h-6 rounded-full border-2 transition-all ${currentThemeId === themeOption.id
                                         ? 'border-primary ring-2 ring-primary/20'
                                         : 'border-border hover:border-muted-foreground'
@@ -744,9 +635,9 @@ export function RibbonToolbar() {
                 <div className="px-4 py-3 bg-muted/30 border-t border-border space-y-4">
                     {/* Layout Grid Settings */}
                     <div className="flex items-center gap-6 pb-4 border-b border-border/50">
-                        <span className="text-xs font-medium text-foreground">Layout Settings:</span>
+                        <span className="text-xs font-medium text-foreground">{t('dashboard.layoutEditor.layoutSettings')}:</span>
                         <div className="flex items-center gap-3">
-                            <label className="text-xs text-muted-foreground">Columns:</label>
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.columns')}:</label>
                             <input
                                 type="number"
                                 min="1"
@@ -757,7 +648,7 @@ export function RibbonToolbar() {
                             />
                         </div>
                         <div className="flex items-center gap-3">
-                            <label className="text-xs text-muted-foreground">Row Height (px):</label>
+                            <label className="text-xs text-muted-foreground">{t('dashboard.layoutEditor.rowHeight')}:</label>
                             <input
                                 type="number"
                                 min="20"
@@ -806,8 +697,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.primary}
-                                onChange={(e) => applyCustomColor('primary', e.target.value)}
+                                value={currentCustomColors.primary || '#000000'}
+                                onChange={(e) => onCustomColorChange('primary', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -815,8 +706,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.secondary}
-                                onChange={(e) => applyCustomColor('secondary', e.target.value)}
+                                value={currentCustomColors.secondary || '#000000'}
+                                onChange={(e) => onCustomColorChange('secondary', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -824,8 +715,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.accent}
-                                onChange={(e) => applyCustomColor('accent', e.target.value)}
+                                value={currentCustomColors.accent || '#000000'}
+                                onChange={(e) => onCustomColorChange('accent', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -833,8 +724,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.background}
-                                onChange={(e) => applyCustomColor('background', e.target.value)}
+                                value={currentCustomColors.background || '#000000'}
+                                onChange={(e) => onCustomColorChange('background', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -842,8 +733,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.foreground}
-                                onChange={(e) => applyCustomColor('foreground', e.target.value)}
+                                value={currentCustomColors.foreground || '#000000'}
+                                onChange={(e) => onCustomColorChange('foreground', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -851,8 +742,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.card}
-                                onChange={(e) => applyCustomColor('card', e.target.value)}
+                                value={currentCustomColors.card || '#000000'}
+                                onChange={(e) => onCustomColorChange('card', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -860,8 +751,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.muted}
-                                onChange={(e) => applyCustomColor('muted', e.target.value)}
+                                value={currentCustomColors.muted || '#000000'}
+                                onChange={(e) => onCustomColorChange('muted', e.target.value)}
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -869,8 +760,8 @@ export function RibbonToolbar() {
                             <input
                                 type="color"
                                 className="w-6 h-6 rounded border border-border cursor-pointer"
-                                value={customColors.border}
-                                onChange={(e) => applyCustomColor('border', e.target.value)}
+                                value={currentCustomColors.border || '#000000'}
+                                onChange={(e) => onCustomColorChange('border', e.target.value)}
                             />
                         </div>
                     </div>

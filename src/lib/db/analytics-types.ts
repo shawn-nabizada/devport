@@ -54,6 +54,7 @@ export interface DailyAnalytics {
     testimonialSubmissions: number;
     socialClicks: Record<string, number>; // platform -> count
     topReferrers: Record<string, number>; // referrer -> count
+    locations: Record<string, number>; // country -> count
 }
 
 /**

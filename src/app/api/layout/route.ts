@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import type { PortfolioLayout, DeviceType } from '@/lib/db/layout-types';
+import type { PortfolioLayout, DeviceType, GridBlock } from '@/lib/db/layout-types';
 
 const DEFAULT_CONFIG = {
     desktop: { cols: 12, rowHeight: 80 },
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { blocks, layouts, settings, device } = body;
+        const { blocks, layouts, settings } = body;
 
         const client = await clientPromise;
         const db = client.db();
@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
         if (Array.isArray(blocks)) {
             // Get IDs of blocks being saved
             const blockIdsToKeep = blocks
-                .filter((b: any) => b._id)
-                .map((b: any) => new ObjectId(b._id));
+                .filter((b: GridBlock) => b._id)
+                .map((b: GridBlock) => new ObjectId(b._id));
 
             // Delete blocks not in the new list
             await db.collection('blocks').deleteMany({
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
             });
 
             // Update/Insert remaining blocks
-            const blockOperations = blocks.map((block: any) => ({
+            const blockOperations = blocks.map((block: GridBlock) => ({
                 updateOne: {
                     filter: { _id: new ObjectId(block._id), userId },
                     update: {

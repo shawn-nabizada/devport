@@ -104,6 +104,7 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
                         onChange={(e) => setEditText(e.target.value)}
                         onBlur={handleBlur}
                         onKeyDown={handleKeyDown}
+                        onClick={(e) => e.stopPropagation()}
                         className="w-full border-b-2 border-primary outline-none bg-transparent text-foreground"
                         style={{
                             ...textStyles,
@@ -118,6 +119,7 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
                         onChange={(e) => setEditText(e.target.value)}
                         onBlur={handleBlur}
                         onKeyDown={handleKeyDown}
+                        onClick={(e) => e.stopPropagation()}
                         className="w-full h-full resize-none border border-primary rounded p-2 outline-none bg-transparent text-foreground"
                         placeholder={t('dashboard.layoutEditor.textPlaceholder')}
                         style={textStyles}
@@ -130,7 +132,10 @@ export function TextBlock({ data, blockId }: TextBlockProps) {
     return (
         <div
             className="h-full p-4 bg-card/50 cursor-text"
-            onClick={startEditing}
+            onClick={(e) => {
+                e.stopPropagation();
+                startEditing();
+            }}
         >
             {data.variant === 'heading' ? (
                 <h2

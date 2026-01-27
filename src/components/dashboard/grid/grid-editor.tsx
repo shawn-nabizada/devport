@@ -6,6 +6,15 @@ import { useGridContext } from './grid-context';
 import { RibbonToolbar } from './ribbon-toolbar';
 import { GridBlockWrapper } from './grid-block-wrapper';
 import { cn } from '@/lib/utils';
+import {
+    getThemeById,
+    getThemeStyleVariables,
+    ThemeId,
+    ThemeColors,
+    PRESET_THEMES,
+} from '@/lib/db/theme-types';
+import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -123,10 +132,88 @@ export function GridEditor() {
         removeBlock,
         saveCheckpoint,
     } = useGridContext();
+    const { resolvedTheme } = useTheme();
 
     const [width, setWidth] = useState(1200);
     const containerRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
+
+    // Theme state
+    const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('tech');
+    const [customColors, setCustomColors] = useState<Partial<ThemeColors>>({});
+
+
+    // Load saved theme settings on mount
+    useEffect(() => {
+        async function loadThemeSettings() {
+            try {
+                const res = await fetch('/api/theme');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.themeId) {
+                        setCurrentThemeId(data.themeId);
+                    }
+                    if (data.customColors) {
+                        setCustomColors(data.customColors);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load theme settings:', error);
+            } finally {
+                // Loaded
+            }
+        }
+        loadThemeSettings();
+    }, []);
+
+    const handleThemeSelect = async (themeId: ThemeId) => {
+        const selectedTheme = getThemeById(themeId);
+        if (!selectedTheme) return;
+
+        setCurrentThemeId(themeId);
+        // Clear custom colors when switching theme
+        const mode = resolvedTheme === 'dark' ? 'dark' : 'light';
+        setCustomColors({
+            primary: selectedTheme.colors[mode].primary,
+            secondary: selectedTheme.colors[mode].secondary,
+            accent: selectedTheme.colors[mode].accent,
+            background: selectedTheme.colors[mode].background,
+            foreground: selectedTheme.colors[mode].foreground,
+            card: selectedTheme.colors[mode].card,
+            muted: selectedTheme.colors[mode].muted,
+            border: selectedTheme.colors[mode].border,
+        });
+
+        try {
+            await fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ themeId }),
+            });
+            toast.success('Theme saved');
+        } catch (error) {
+            console.error('Failed to save theme:', error);
+            toast.error('Failed to save theme');
+        }
+    };
+
+    // Apply custom color and save to API
+    const applyCustomColor = (colorName: string, colorValue: string) => {
+        const newColors = { ...customColors, [colorName]: colorValue };
+        setCustomColors(newColors);
+
+        // Save to API (debounced via requestAnimationFrame)
+        requestAnimationFrame(() => {
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    themeId: currentThemeId,
+                    customColors: newColors
+                }),
+            }).catch(err => console.error('Failed to save custom color:', err));
+        });
+    };
 
     // Initial mount hydration fix
     useEffect(() => {
@@ -238,16 +325,42 @@ export function GridEditor() {
     const margin: [number, number] = device === 'mobile' ? [10, 10] : [16, 16];
     const containerPadding: [number, number] = device === 'mobile' ? [10, 10] : [16, 16];
 
+    // Compute theme styles
+    const selectedTheme = getThemeById(currentThemeId) || PRESET_THEMES[0];
+    const isDark = resolvedTheme === 'dark';
+    const baseThemeVariables = getThemeStyleVariables(selectedTheme, isDark);
+
+    // Override with custom colors (convert camelCase to kebab-case variables)
+    const customVariables: Record<string, string> = {};
+    Object.entries(customColors).forEach(([key, value]) => {
+        if (value) {
+            // Simple mapping for demo purposes, robust solution would use toKebabCase helper if exported
+            const kebab = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+            customVariables[`--${kebab}`] = value;
+        }
+    });
+
+    const themeStyles = { ...baseThemeVariables, ...customVariables };
+
     return (
         <div className="flex flex-col h-screen bg-background">
-            <RibbonToolbar />
+            <RibbonToolbar
+                currentThemeId={currentThemeId}
+                currentCustomColors={customColors}
+                onThemeSelect={handleThemeSelect}
+                onCustomColorChange={applyCustomColor}
+            />
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Main Canvas */}
                 <div className="flex-1 bg-muted/10 overflow-auto relative custom-scrollbar">
                     <div
+                        id="portfolio-preview"
                         className="min-h-full relative bg-background shadow-sm overflow-hidden"
-                        style={getContainerStyle()}
+                        style={{
+                            ...getContainerStyle(),
+                            ...(themeStyles as React.CSSProperties)
+                        }}
                         ref={containerRef}
                         onClick={() => setSelectedBlockId(null)} // Click background to deselect
                     >
@@ -278,6 +391,7 @@ export function GridEditor() {
                                 resizeHandle: <ResizeHandle />,
                                 onLayoutChange: handleLayoutChange,
                                 onResizeStart: handleResizeStart,
+                                onDragStart: handleDragStart,
                                 compactType: null,
                                 preventCollision: false
                             } as unknown as React.ComponentProps<typeof ResponsiveGridLayout> & { isDraggable: boolean, isResizable: boolean })}

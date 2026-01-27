@@ -38,6 +38,8 @@ export interface Translations {
         optional: string;
         english: string;
         french: string;
+
+        reset: string;
     };
     nav: {
         home: string;
@@ -163,6 +165,16 @@ export interface Translations {
             uploadFailed: string;
             textPlaceholder: string;
             clickToEdit: string;
+            resetTitle: string;
+            resetDescription: string;
+            layoutSettings: string;
+            columns: string;
+            rowHeight: string;
+            desktop: string;
+            mobile: string;
+            tabHome: string;
+            tabInsert: string;
+            tabDesign: string;
         };
         themes: {
             title: string;

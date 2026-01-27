@@ -86,6 +86,13 @@ export async function GET(request: NextRequest) {
                     referrerCounts[referrer] = (referrerCounts[referrer] || 0) + count;
                 });
             }
+
+            // Aggregate locations
+            if (day.locations) {
+                Object.entries(day.locations).forEach(([country, count]) => {
+                    locationCounts[country] = (locationCounts[country] || 0) + count;
+                });
+            }
         });
 
         // Get unique visitors (count distinct ipHash)
