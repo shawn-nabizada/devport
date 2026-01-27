@@ -1,142 +1,101 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import GridLayout, { LayoutItem as RGLLayoutItem } from 'react-grid-layout';
-import { GridProvider, useGridContext } from './grid-context';
-import { BlockRenderer } from './block-renderer';
-import type { LayoutItem, GridBlock, DeviceType } from '@/lib/db/layout-types';
+import React from 'react';
+import { LayoutItem, GridBlock, DeviceType } from '@/lib/db/layout-types';
+import { GridBlockWrapper } from './grid-block-wrapper';
+import { cn } from '@/lib/utils';
+import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 
 interface PublicGridRendererProps {
-    layouts: Array<{ device: DeviceType; layout: LayoutItem[] }>;
-    blocks: Array<GridBlock & { device?: DeviceType }>;
+    blocks: GridBlock[];
+    layouts: { device: DeviceType; layout: LayoutItem[] }[];
+    cols?: { desktop: number; mobile: number };
+    rowHeight?: number;
+    className?: string;
+    width?: number; // Optional override
 }
 
-function GridView({ width }: { width: number }) {
-    const { layout, blocks, device, setDevice } = useGridContext();
+export function PublicGridRenderer({
+    blocks,
+    layouts,
+    cols = { desktop: 12, mobile: 4 },
+    rowHeight = 80,
+    className,
+    width: propWidth,
+}: PublicGridRendererProps) {
+    const [width, setWidth] = React.useState(propWidth || 1200);
+    const containerRef = React.useRef<HTMLDivElement>(null);
 
-    // Auto-switch specific layout based on width
-    useEffect(() => {
-        if (width < 768 && device !== 'mobile') {
-            setDevice('mobile');
-        } else if (width >= 768 && device !== 'desktop') {
-            setDevice('desktop');
+    React.useEffect(() => {
+        if (propWidth) {
+            setWidth(propWidth);
+            return;
         }
-    }, [width, device, setDevice]);
 
-    const cols = device === 'desktop' ? 12 : 4;
-    const rowHeight = device === 'desktop' ? 80 : 60;
-    const gridWidth = width;
-    const margin = 16;
+        const container = containerRef.current;
+        if (!container) return;
 
-    // Tracking
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                setWidth(entry.contentRect.width);
+            }
+        });
 
+        resizeObserver.observe(container);
+        return () => resizeObserver.disconnect();
+    }, [propWidth]);
 
-    // Get ownerId from blocks safely
-    const ownerId = blocks.length > 0 ? blocks[0].userId : null;
+    // Local interface for RGL layout items
+    interface RGLLayoutItem {
+        i: string;
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        minW?: number;
+        maxW?: number;
+        static?: boolean;
+    }
+
+    // Map device layouts to RGL breakpoints
+    const rglLayouts = {
+        lg: (layouts.find(l => l.device === 'desktop')?.layout || []) as unknown as RGLLayoutItem[],
+        md: (layouts.find(l => l.device === 'desktop')?.layout || []) as unknown as RGLLayoutItem[],
+        sm: (layouts.find(l => l.device === 'mobile')?.layout || []) as unknown as RGLLayoutItem[],
+        xs: (layouts.find(l => l.device === 'mobile')?.layout || []) as unknown as RGLLayoutItem[],
+        xxs: (layouts.find(l => l.device === 'mobile')?.layout || []) as unknown as RGLLayoutItem[],
+    } as unknown as { [key: string]: RGLLayoutItem[] };
 
     return (
-        <div className="portfolio-grid relative min-h-[400px]">
-            <GridLayout
-                {...{
+        <div ref={containerRef} className={cn("w-full min-h-screen", className)}>
+            <ResponsiveGridLayout
+                {...({
                     className: "layout",
-                    layout: layout as RGLLayoutItem[],
-                    width: gridWidth,
+                    layouts: rglLayouts,
+                    breakpoints: { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 },
+                    cols: { lg: cols.desktop, md: cols.desktop, sm: cols.mobile, xs: cols.mobile, xxs: cols.mobile },
+                    rowHeight: rowHeight,
+                    width: width,
+                    margin: [16, 16],
+                    containerPadding: [16, 16],
                     isDraggable: false,
                     isResizable: false,
-                    cols,
-                    rowHeight,
-                    margin: [margin, margin],
-                    containerPadding: [margin, 0],
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any}
+                    useCSSTransforms: true
+                } as unknown as React.ComponentProps<typeof ResponsiveGridLayout> & { isDraggable: boolean, isResizable: boolean })}
             >
                 {blocks.map((block) => (
-                    <div
-                        key={block._id.toString()}
-                        className="bg-card rounded-lg shadow-sm overflow-hidden border border-border/50"
-                    >
-                        <BlockRenderer
+                    <div key={block._id.toString()}>
+                        <GridBlockWrapper
                             block={block}
-                            onInteract={(id) => {
-                                if (ownerId) {
-                                    // Send ownerId as body userId, because /track route expects { userId, ... } 
-                                    // where userId is the OWNER of the portfolio, for aggregation?
-                                    // Wait, /track uses userId to find WHERE to store analytics.
-                                    // The person clicking is Anonymous (visitor).
-                                    // So userId passed to track MUST be the Portfolio Owner.
-                                    // blocks[0].userId is correct.
-                                    fetch('/api/analytics/track', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            userId: ownerId,
-                                            eventType: 'block_click',
-                                            metadata: { blockId: id }
-                                        }),
-                                    });
-                                }
-                            }}
+                            isSelected={false}
+                            isEditMode={false}
+                            onRemove={() => { }}
+                            onClick={() => { }}
                         />
                     </div>
                 ))}
-            </GridLayout>
-        </div>
-    );
-}
-
-export function PublicGridRenderer({ layouts, blocks }: PublicGridRendererProps) {
-    const [width, setWidth] = useState(1200);
-
-    // Parse data
-    const desktopLayoutData = layouts.find(l => l.device === 'desktop')?.layout || [];
-    const mobileLayoutData = layouts.find(l => l.device === 'mobile')?.layout || [];
-
-    // In the current API, blocks seem to be returned as a flat list.
-    // Ideally we should filter them if they are device specific, but for now passing all to both might be safe 
-    // if the layout only references available block IDs.
-    // Actually, GridProvider loadDeviceLayout fetches blocks?device=...
-    // If blocks are distinct, we need to know which are which.
-    // The API /api/portfolio returns *all* blocks.
-    // We can pass all blocks to both states, the Grid only renders blocks that match layout IDs?
-    // No, GridLayout iterates `children` (blocks maps).
-    // So we MUST filter blocks that are actually IN the layout.
-
-    const filterBlocksForLayout = (layoutItems: LayoutItem[], allBlocks: GridBlock[]) => {
-        const ids = new Set(layoutItems.map(i => i.i));
-        return allBlocks.filter(b => ids.has(b._id.toString()));
-    };
-
-    const desktopBlocks = filterBlocksForLayout(desktopLayoutData, blocks);
-    const mobileBlocks = filterBlocksForLayout(mobileLayoutData, blocks);
-
-    useEffect(() => {
-        const updateWidth = () => {
-            // Container width logic
-            const container = document.getElementById('portfolio-container');
-            if (container) {
-                setWidth(container.offsetWidth);
-            } else {
-                setWidth(Math.min(1400, window.innerWidth - 32));
-            }
-        };
-
-        updateWidth();
-        window.addEventListener('resize', updateWidth);
-        return () => window.removeEventListener('resize', updateWidth);
-    }, []);
-
-    return (
-        <GridProvider
-            readOnly={true}
-            initialLayout={desktopLayoutData}
-            initialBlocks={desktopBlocks}
-            initialMobileLayout={mobileLayoutData}
-            initialMobileBlocks={mobileBlocks}
-        >
-            <div id="portfolio-container" className="w-full">
-                <GridView width={width} />
-            </div>
-        </GridProvider>
+            </ResponsiveGridLayout>
+        </div >
     );
 }

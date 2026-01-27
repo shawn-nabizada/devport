@@ -1,36 +1,24 @@
 'use client';
 
-import React, { useCallback, useState, useRef, useEffect, forwardRef } from 'react';
-import GridLayout, { LayoutItem as RGLLayoutItem, Layout as RGLLayout, GridLayoutProps } from 'react-grid-layout';
+import React, { useState, useEffect, useRef } from 'react';
+import { Responsive as ResponsiveGridLayout } from 'react-grid-layout';
+import { useGridContext, GridProvider } from './grid-context';
+import { RibbonToolbar } from './ribbon-toolbar';
+import { GridBlockWrapper } from './grid-block-wrapper';
+import { cn } from '@/lib/utils';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 
-// Define our own EventCallback type that matches what GridLayout accepts
-type GridEventCallback = NonNullable<GridLayoutProps['onDrag']>;
-import { useGridContext } from './grid-context';
-import { BlockRenderer } from './block-renderer';
-import type { LayoutItem } from '@/lib/db/layout-types';
-import { Loader2 } from 'lucide-react';
-// import 'react-grid-layout/css/styles.css'; // Removed to prevent conflict with globals.css
-
-interface GridEditorProps {
-    width?: number;
-}
-
-interface ExtendedLayoutItem extends RGLLayoutItem {
-    resizeHandles?: Array<'s' | 'w' | 'e' | 'n' | 'sw' | 'nw' | 'se' | 'ne'>;
-}
-
-// Custom Resize Handle
-const ResizeHandle = forwardRef<HTMLDivElement, { handleAxis?: string }>(
-    ({ handleAxis, ...props }, ref) => {
+// Reuse the resize handle from the reference project
+const ResizeHandle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+    (props, ref) => {
         return (
             <div
                 ref={ref}
-                data-axis={handleAxis}
-                className="custom-resize-handle absolute bottom-1 right-1 cursor-se-resize p-1 z-20 opacity-0 transition-opacity duration-200"
+                className="absolute bottom-1 right-1 cursor-se-resize p-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 {...props}
             >
-                {/* Visual handle: A small indicator */}
-                <div className="w-4 h-4 rounded-sm bg-background hover:bg-muted border border-border flex items-center justify-center shadow-sm">
+                <div className="w-4 h-4 rounded-sm bg-primary/20 backdrop-blur-sm border border-primary/50 flex items-center justify-center">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="10"
@@ -41,7 +29,7 @@ const ResizeHandle = forwardRef<HTMLDivElement, { handleAxis?: string }>(
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="opacity-50 -rotate-45"
+                        className="opacity-70 -rotate-45 text-primary"
                     >
                         <polyline points="21 15 21 21 15 21" />
                     </svg>
@@ -52,55 +40,42 @@ const ResizeHandle = forwardRef<HTMLDivElement, { handleAxis?: string }>(
 );
 ResizeHandle.displayName = "ResizeHandle";
 
-// Background Grid Lines
 const GridLines = ({
     width,
     cols,
     rowHeight,
+    minHeight = 1000,
     margin = [16, 16],
     containerPadding = [16, 16],
 }: {
     width: number;
     cols: number;
     rowHeight: number;
+    minHeight?: number;
     margin?: [number, number];
     containerPadding?: [number, number];
 }) => {
-    // Calculate column width exactly as React-Grid-Layout does
-    // width = colWidth * cols + margin * (cols - 1) + containerPadding * 2
-    // colWidth = (width - containerPadding * 2 - margin * (cols - 1)) / cols
-    const colWidth =
-        (width - containerPadding[0] * 2 - margin[0] * (cols - 1)) / cols;
+    const colWidth = (width - containerPadding[0] * 2 - margin[0] * (cols - 1)) / cols;
 
-    // Render a sufficient number of rows. 
-    // In a real app, this might calculate based on the layout's max Y, but for a "background" feel, 
-    // we'll render enough to cover a reasonable viewport height (e.g. 20 rows ~ 3000px).
-    const rowCount = 30;
-    const gridHeight =
-        containerPadding[1] * 2 + rowCount * rowHeight + (rowCount - 1) * margin[1];
+    // Calculate how many rows fit in the current minimum height
+    // We ensure we cover at least the minHeight, essentially.
+    const effectiveHeight = Math.max(minHeight, 500);
+    const rowCount = Math.ceil((effectiveHeight - containerPadding[1] * 2) / (rowHeight + margin[1])) + 5; // Add buffer rows
 
-    if (colWidth <= 0) return null;
+    const gridHeight = containerPadding[1] * 2 + rowCount * rowHeight + (rowCount - 1) * margin[1];
+
+    if (width <= 0) return null;
 
     return (
-        <div className="absolute inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 pointer-events-none z-0" style={{ height: gridHeight }}>
             <svg
                 width={width}
                 height={gridHeight}
-                className="stroke-gray-300 dark:stroke-gray-700"
+                className="stroke-border"
             >
-                {/* Vertical Lines (Columns) */}
+                {/* Vertical Lines */}
                 {Array.from({ length: cols + 1 }).map((_, i) => {
-                    // Lines are drawn at the gap centers
-                    // Shift lines by half margin to center the grid visually around items
                     const x = containerPadding[0] + i * (colWidth + margin[0]) - (margin[0] / 2);
-
-                    // Don't draw lines outside for the very first and last if we want them flush,
-                    // but standard graph paper usually has lines.
-                    // The 'grid' project implementation:
-                    // x = containerPadding[0] + i * (colWidth + margin[0]) - (margin[0] / 2);
-
-                    if (i === 0 && margin[0] === 0) return null; // Skip first if no margin? Keeping consistent with source.
-
                     return (
                         <line
                             key={`v-${i}`}
@@ -114,7 +89,7 @@ const GridLines = ({
                     );
                 })}
 
-                {/* Horizontal Lines (Rows) */}
+                {/* Horizontal Lines */}
                 {Array.from({ length: rowCount + 1 }).map((_, i) => {
                     const y = containerPadding[1] + i * (rowHeight + margin[1]) - (margin[1] / 2);
                     return (
@@ -134,28 +109,31 @@ const GridLines = ({
     );
 };
 
-export function GridEditor({ width: initialWidth = 1200 }: GridEditorProps) {
+function GridEditorContent() {
     const {
-        layout,
-        setLayout,
-        blocks,
         editMode,
         device,
-        cols,         // Get from context
-        rowHeight,    // Get from context
+        cols,
+        rowHeight,
+        blocks,
+        layouts,
+        updateLayout,
         selectedBlockId,
-        isLoadingDevice,
-        undo,
-        redo,
-        saveCheckpoint,
+        setSelectedBlockId,
         removeBlock,
+        saveCheckpoint,
     } = useGridContext();
 
-    const [width, setWidth] = useState(initialWidth);
+    const [width, setWidth] = useState(1200);
     const containerRef = useRef<HTMLDivElement>(null);
-    const [isDragging, setIsDragging] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
-    // Resize Observer for robust width
+    // Initial mount hydration fix
+    useEffect(() => {
+        setTimeout(() => setMounted(true), 0);
+    }, []);
+
+    // Resize observer for grid width
     useEffect(() => {
         if (!containerRef.current) return;
 
@@ -172,180 +150,163 @@ export function GridEditor({ width: initialWidth = 1200 }: GridEditorProps) {
         };
     }, []);
 
-    const selectedBlock = blocks.find(b => b._id.toString() === selectedBlockId);
-
-    const margin: [number, number] = [16, 16];
-    const containerPadding: [number, number] = [16, 16];
-
-    const handleLayoutChange = useCallback((newLayout: RGLLayout) => {
-        if (!editMode) return;
-
-        const updatedLayout: LayoutItem[] = newLayout.map((item: RGLLayoutItem) => ({
-            i: item.i,
-            x: item.x,
-            y: item.y,
-            w: item.w,
-            h: item.h,
-            minW: item.minW,
-            minH: item.minH,
-            maxW: item.maxW,
-            maxH: item.maxH,
-            static: item.static,
-        }));
-
-        setLayout(updatedLayout);
-    }, [editMode, setLayout]);
-
-    const handleDragStart = useCallback(() => {
-        saveCheckpoint();
-        setIsDragging(true);
-    }, [saveCheckpoint]);
-
-    const handleDragStop = useCallback(() => {
-        setIsDragging(false);
-    }, []);
-
-    // Keyboard Shortcuts
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!editMode) return;
-            if (e.ctrlKey && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-            if ((e.ctrlKey && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) { e.preventDefault(); redo(); }
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (selectedBlockId) {
-                    const tagName = (e.target as HTMLElement).tagName;
-                    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) return;
-                    if ((e.target as HTMLElement).isContentEditable) return;
-                    e.preventDefault();
-                    saveCheckpoint();
-                    removeBlock(selectedBlockId);
-                }
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [editMode, undo, redo, saveCheckpoint, removeBlock, selectedBlockId]);
-
-    // Convert our layout items to react-grid-layout format
-    const gridLayout: RGLLayoutItem[] = layout.map((item) => ({
-        ...item,
-        isDraggable: editMode,
-        isResizable: editMode,
-        // resizeHandles: ['sw', 'nw', 'se', 'ne'],
-    })) as ExtendedLayoutItem[];
-
-    if (isLoadingDevice) {
-        return (
-            <div className={`grid-editor relative ${device === 'mobile' ? 'max-w-[400px] mx-auto' : ''}`}>
-                <div className="flex items-center justify-center py-16">
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                    <span className="ml-3 text-gray-500">Loading {device} layout...</span>
-                </div>
-            </div>
-        );
+    // Local interface for RGL layout items to ensure type safety
+    interface RGLLayoutItem {
+        i: string;
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+        minW?: number;
+        maxW?: number;
+        static?: boolean;
     }
 
+    // Map internal layout items to RGL structure to ensure clean types
+    const rglLayouts = React.useMemo(() => {
+        return layouts[device].map(l => ({
+            i: l.i,
+            x: l.x,
+            y: l.y,
+            w: l.w,
+            h: l.h,
+            minW: l.minW,
+            maxW: l.maxW,
+            static: l.static
+        })) as unknown as RGLLayoutItem[];
+    }, [layouts, device]);
+
+    // Handle Layout Change
+    const handleLayoutChange = (currentLayout: RGLLayoutItem[]) => {
+        // Only update if mounted to avoid initial thrashing
+        if (mounted) {
+            // Map RGL layout back to our LayoutItem type
+            const newLayoutItems = currentLayout.map((l) => ({
+                i: l.i,
+                x: l.x,
+                y: l.y,
+                w: l.w,
+                h: l.h,
+                minW: l.minW,
+                maxW: l.maxW,
+                static: l.static
+            }));
+
+            updateLayout(newLayoutItems);
+        }
+    };
+
+    const handleDragStart = () => {
+        saveCheckpoint();
+    };
+
+    const handleResizeStart = () => {
+        saveCheckpoint();
+    };
+
+    // Calculate container width based on device to simulate view
+    const getContainerStyle = () => {
+        if (device === 'mobile') {
+            return {
+                width: '375px', // iPhone SE / Common Mobile width
+                margin: '0 auto',
+                borderLeft: '1px solid var(--border)',
+                borderRight: '1px solid var(--border)',
+                minHeight: '100vh',
+            };
+        }
+        return {
+            width: '100%',
+            minHeight: '100vh',
+        };
+    };
+
+    if (!mounted) return null;
+
+    // Calculate dynamic grid height to ensure lines cover all blocks
+    const maxGridY = rglLayouts.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+    // Approximate height in pixels: (rows * rowHeight) + (rows * margin) + padding
+    const contentHeight = maxGridY * (rowHeight + 16) + 200; // + buffer
+
     return (
-        <div
-            ref={containerRef}
-            id="portfolio-preview"
-            className={`grid-editor relative rounded-md overflow-hidden min-h-[600px] w-full ${device === 'mobile' ? 'max-w-[400px] mx-auto' : ''} [&_.react-grid-item:hover_.custom-resize-handle]:opacity-100`}
-            style={{
-                backgroundColor: 'var(--background)',
-                color: 'var(--foreground)',
-            }}
-        >
-            {/* SVG Grid Lines */}
-            {editMode && (
-                <GridLines
-                    width={width}
-                    cols={cols}
-                    rowHeight={rowHeight}
-                    margin={margin}
-                    containerPadding={containerPadding}
-                />
-            )}
+        <div className="flex flex-col h-screen bg-background">
+            <RibbonToolbar />
 
-            <GridLayout
-                key={`${cols}-${rowHeight}`}
-                className="layout"
-                layout={gridLayout}
-                width={width}
-                // @ts-expect-error - The types for react-grid-layout are missing cols
-                cols={cols}
-                rowHeight={rowHeight}
-                margin={margin}
-                containerPadding={containerPadding}
-                compactType={null} // No gravity, free movement
-                preventCollision={false} // Allow pushing
-                resizeHandle={<ResizeHandle />}
-                onLayoutChange={handleLayoutChange}
-                onDragStart={handleDragStart}
-                onDragStop={handleDragStop}
-                isDraggable={editMode}
-                isResizable={editMode}
-                draggableCancel=".non-draggable"
-            >
-                {blocks.map((block) => {
-                    const isSelected = selectedBlockId === block._id.toString();
-                    return (
-                        <div
-                            key={block._id.toString()}
-                            className={`bg-card rounded-lg shadow-sm overflow-visible ${isSelected ? 'z-50 ring-2 ring-primary' : 'z-0'
-                                } ${editMode ? 'cursor-move' : ''}`}
-                            style={{
-                                zIndex: isSelected ? 50 : 1
-                            }}
-                            onClick={(e) => {
-                                // Prevent selecting passed-through checks if needed?
-                            }}
+            <div className="flex flex-1 overflow-hidden">
+                {/* Main Canvas */}
+                <div className="flex-1 bg-muted/10 overflow-auto relative custom-scrollbar">
+                    <div
+                        className="min-h-full transition-all duration-300 relative bg-background shadow-sm"
+                        style={getContainerStyle()}
+                        ref={containerRef}
+                        onClick={() => setSelectedBlockId(null)} // Click background to deselect
+                    >
+                        {/* Background Grid Lines */}
+                        {editMode && (
+                            <GridLines
+                                width={width}
+                                cols={cols}
+                                rowHeight={rowHeight}
+                                minHeight={Math.max(contentHeight, 1000)} // Ensure at least screen height
+                            />
+                        )}
+
+                        <ResponsiveGridLayout
+                            {...({
+                                className: cn("layout", !editMode && "pointer-events-none"),
+                                layouts: { lg: rglLayouts },
+                                breakpoints: { lg: 0 },
+                                cols: { lg: cols },
+                                rowHeight: rowHeight,
+                                width: width,
+                                margin: [16, 16],
+                                containerPadding: [16, 16],
+                                isDraggable: editMode,
+                                isResizable: editMode,
+                                resizeHandle: <ResizeHandle />,
+                                onLayoutChange: handleLayoutChange,
+                                onDragStart: handleDragStart,
+                                onResizeStart: handleResizeStart,
+                                draggableCancel: ".no-drag",
+                                compactType: null,
+                                preventCollision: false
+                            } as unknown as React.ComponentProps<typeof ResponsiveGridLayout> & { isDraggable: boolean, isResizable: boolean })}
                         >
-                            <div className="w-full h-full overflow-hidden rounded-lg">
-                                <BlockRenderer block={block} />
-                            </div>
-                        </div>
-                    );
-                })}
-            </GridLayout>
-
-            {blocks.length === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center text-muted-foreground bg-background/80 p-6 rounded-lg backdrop-blur-sm border shadow-sm">
-                        <p className="text-lg font-medium mb-1">Canvas is empty</p>
-                        <p className="text-sm">Add blocks from the sidebar to start building</p>
+                            {blocks.map((block) => {
+                                // Find layout item to verify existence? Not strictly needed as RGL handles it,
+                                // but we use blocks.map as the source of truth for DOM.
+                                return (
+                                    <div key={block._id.toString()}>
+                                        <GridBlockWrapper
+                                            block={block}
+                                            isSelected={selectedBlockId === block._id.toString()}
+                                            isEditMode={editMode}
+                                            onRemove={removeBlock}
+                                            onClick={() => {
+                                                // Prevent bubbling to background
+                                                // We handle this in wrapper's onClick prop if needed, 
+                                                // but wrapper onClick needs to call setSelectedBlockId
+                                            }}
+                                            onMouseDown={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedBlockId(block._id.toString());
+                                            }}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </ResponsiveGridLayout>
                     </div>
                 </div>
-            )}
-
-            {/* Debug Info */}
-            <div className="absolute top-2 right-2 bg-black/80 text-white p-4 rounded shadow-xl z-[100] font-mono text-xs pointer-events-none">
-                <div className="font-bold border-b border-white/20 mb-2 pb-1 text-green-400">DEBUG GRID</div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <span className="text-gray-400">Width:</span> <span>{Math.round(width)}px</span>
-                    <span className="text-gray-400">Cols:</span> <span>{cols}</span>
-                    <span className="text-gray-400">RowH:</span> <span>{rowHeight}px</span>
-                    <span className="text-gray-400">Margin:</span> <span>{margin[0]}px</span>
-                </div>
-                {selectedBlock && (
-                    <div className="mt-2 pt-2 border-t border-white/20">
-                        <div className="font-bold text-yellow-400 mb-1">Selected: {selectedBlock.type}</div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                            {(() => {
-                                const item = layout.find(l => l.i === selectedBlock._id.toString());
-                                return item ? (
-                                    <>
-                                        <span className="text-gray-400">x:</span> <span>{item.x}</span>
-                                        <span className="text-gray-400">y:</span> <span>{item.y}</span>
-                                        <span className="text-gray-400">w:</span> <span>{item.w}</span>
-                                        <span className="text-gray-400">h:</span> <span>{item.h}</span>
-                                    </>
-                                ) : <span className="col-span-2 text-red-400">Item not in layout!</span>;
-                            })()}
-                        </div>
-                    </div>
-                )}
             </div>
-        </div>
+        </div >
     );
 }
 
+export function GridEditor() {
+    return (
+        <GridProvider>
+            <GridEditorContent />
+        </GridProvider>
+    );
+}

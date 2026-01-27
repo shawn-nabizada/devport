@@ -5,7 +5,6 @@ import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { GridProvider } from '@/components/dashboard/grid/grid-context';
 import { GridEditor } from '@/components/dashboard/grid/grid-editor';
-import { RibbonToolbar } from '@/components/dashboard/grid/ribbon-toolbar';
 import { useTranslation } from '@/lib/i18n';
 import type { LayoutItem, GridBlock } from '@/lib/db/layout-types';
 
@@ -15,7 +14,7 @@ export default function LayoutEditorPage() {
     const [initialLayout, setInitialLayout] = useState<LayoutItem[]>([]);
     const [initialBlocks, setInitialBlocks] = useState<GridBlock[]>([]);
     const [loading, setLoading] = useState(true);
-    const [editorWidth, setEditorWidth] = useState(1200);
+
 
     useEffect(() => {
         if (status === 'unauthenticated') {
@@ -55,16 +54,9 @@ export default function LayoutEditorPage() {
     // Update editor width on resize
     useEffect(() => {
         const updateWidth = () => {
-            // Full width minus some padding (adjusting for sidebar/container)
-            const container = document.getElementById('editor-container');
-            if (container) {
-                setEditorWidth(container.clientWidth - 48); // Account for card padding
-            } else {
-                setEditorWidth(window.innerWidth - 64);
-            }
+            // Placeholder if needed for responsive logic
         };
 
-        updateWidth();
         window.addEventListener('resize', updateWidth);
         return () => window.removeEventListener('resize', updateWidth);
     }, []);
@@ -78,16 +70,19 @@ export default function LayoutEditorPage() {
     }
 
     return (
-        <GridProvider initialLayout={initialLayout} initialBlocks={initialBlocks}>
+        <GridProvider
+            initialLayout={{
+                desktop: initialLayout,
+                mobile: [] // TODO: Fetch mobile layout
+            }}
+            initialBlocks={initialBlocks}
+        >
             <div className="min-h-screen bg-muted/30">
-                {/* Ribbon Toolbar */}
-                <RibbonToolbar />
-
                 {/* Main Editor Area - Full Width */}
                 <main className="p-4 md:p-6">
                     <div id="editor-container" className="container mx-auto">
                         <div className="bg-card rounded-xl shadow-lg p-6 min-h-[600px]">
-                            <GridEditor width={editorWidth} />
+                            <GridEditor />
                         </div>
                     </div>
                 </main>
